@@ -1,5 +1,5 @@
 Changes
-MANIFEST			This list of files
+MANIFEST
 Makefile.PL
 README
 lib/Petal.pm
