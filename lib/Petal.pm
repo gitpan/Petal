@@ -80,7 +80,7 @@ our $CURRENT_INCLUDES = 0;
 
 
 # this is for CPAN
-our $VERSION = '0.95';
+our $VERSION = '0.96';
 
 
 # The CodeGenerator class backend to use.
@@ -498,6 +498,7 @@ sub _code_memory_cached
 	    my $cpt = Safe->new ("Petal::CPT");
 	    $cpt->permit ('entereval');
 	    $cpt->permit ('leaveeval');
+	    $cpt->permit ('require');
 	    
 	    $cpt->reval($code_perl);
 	    die $@ if ($@);
