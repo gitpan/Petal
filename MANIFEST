@@ -14,7 +14,6 @@ lib/Petal/Hash/Var.pm
 lib/Petal/Parser.pm
 Makefile.PL
 MANIFEST			This list of files
-META.yml
 README
 t/001_Include.t
 t/002_Set_Modifier.t
@@ -76,6 +75,7 @@ t/benchmark.pl
 t/data/access_obj_array.html
 t/data/access_obj_hash.html
 t/data/attribute_strip.html
+t/data/attribute_strip2.html
 t/data/attributes_andquot.xml
 t/data/autoload.xml
 t/data/basic.xml
@@ -158,3 +158,4 @@ t/data/test_ns_attributes/test_rightWayOfDoing.xml
 t/data/tests_with_zero.xml
 t/data/xhtml.html
 t/data/xhtml_omit_tag.html
+META.yml                                 Module meta-data (added by MakeMaker)
