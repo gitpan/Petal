@@ -161,11 +161,11 @@ $MODIFIERS->{'encode_html:'} = $MODIFIERS->{'encode:'};
 sub new
 {
     my $thing = shift;
-    my $class = ref $thing || $thing;
+    my $self  = (ref $thing) ?
+        bless { %{$thing} }, ref $thing :
+	bless { @_ }, $thing;
     
-    my $self  = bless { @_ }, $class;
     $self->{__petal_hash_cache__}  = {};
-    $self->{__petal_hash_parent__} = (ref $thing) ? $thing : undef;
     return $self;
 }
 
@@ -179,18 +179,9 @@ sub get
     delete $self->{__petal_hash_cache__}->{$key} if ($fresh);
     exists $self->{__petal_hash_cache__}->{$key} and return $self->{__petal_hash_cache__}->{$key};
     
-    my $parent = $self->parent();
-    my $res    = $self->__FETCH ($key);
-    $res = $parent->get ($key) if (not defined $res and defined $parent);
+    my $res = $self->__FETCH ($key);
     $self->{__petal_hash_cache__}->{$key} = $res;
     return $res;
-}
-
-
-sub parent
-{
-    my $self = shift;
-    return $self->{__petal_hash_parent__};
 }
 
 

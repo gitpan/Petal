@@ -26,7 +26,6 @@ use strict;
 use warnings;
 use Carp;
 
-
 our $STRING_RE_DOUBLE = qq |(?<!\\\\)\\".*?(?<!\\\\)\\"|;
 our $STRING_RE_SINGLE = qq |(?<!\\\\)\\'.*?(?<!\\\\)\\'|;
 our $STRING_RE        = "(?:$STRING_RE_SINGLE|$STRING_RE_DOUBLE)";
@@ -38,13 +37,14 @@ sub process
 {
     my $class = shift;
     my $hash  = shift;
+    
     my $argument = shift;
    
     my @tokens = $argument =~ /($TOKEN_RE)/gsm;
     my $path   = shift (@tokens) or confess "bad syntax for $class: $argument (\$path)";
     my @path = split /\/|\./, $path;    
     my @args = @tokens;
-
+    
     # replace variable names by their value
     for (my $i=0; $i < @args; $i++)
     {
