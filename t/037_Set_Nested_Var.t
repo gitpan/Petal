@@ -9,7 +9,6 @@ $Petal::BASE_DIR     = './t/data/';
 $Petal::DISK_CACHE   = 0;
 $Petal::MEMORY_CACHE = 0;
 $Petal::TAINT        = 1;
-$Petal::INPUT        = 'HTML';
 
 
 ok (1);

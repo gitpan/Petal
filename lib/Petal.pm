@@ -86,7 +86,7 @@ our $CURRENT_INCLUDES = 0;
 
 
 # this is for CPAN
-our $VERSION = '1.10_02';
+our $VERSION = '1.10_03';
 
 
 # The CodeGenerator class backend to use.
@@ -320,7 +320,7 @@ sub process
 	$res = $coderef->($hash);
 	
 	$Petal::ENCODE_CHARSET and do {
-	    $res = Petal::Encode::encode ($Petal::ENCODE_CHARSET, $res);
+	    $res = Petal::Encode::p_encode ($Petal::ENCODE_CHARSET, $res);
 	};
     };
     
@@ -337,19 +337,22 @@ sub _process_absolutize_pathes
 {
     my $self = shift;
     
-    $BASE_DIR = File::Spec->rel2abs ($BASE_DIR) unless (
-	File::Spec->file_name_is_absolute ($BASE_DIR)
-	 );
+    if (defined $BASE_DIR)
+    {
+	$BASE_DIR = File::Spec->rel2abs ($BASE_DIR) unless (
+	    File::Spec->file_name_is_absolute ($BASE_DIR)
+	     );
+    }
     
-    @BASE_DIR = ( map { File::Spec->file_name_is_absolute ($BASE_DIR) ? $_ : File::Spec->rel2abs ($_) }
+    @BASE_DIR = ( map { File::Spec->file_name_is_absolute ($_) ? $_ : File::Spec->rel2abs ($_) }
 		  map { defined $_ ? $_ : () } @BASE_DIR );
     
-    if ($self->{base_dir})
+    if (defined $self->{base_dir})
     {
 	if (ref $self->{base_dir})
 	{
 	    $self->{base_dir} = [
-		map { File::Spec->file_name_is_absolute ($BASE_DIR) ? $_ : File::Spec->rel2abs ($_) }
+		map { File::Spec->file_name_is_absolute ($_) ? $_ : File::Spec->rel2abs ($_) }
 		map { defined $_ ? $_ : () } @{$self->{base_dir}}
 	       ] if (defined $self->{base_dir});
 	}
@@ -487,14 +490,14 @@ sub _file_data_ref
     no bytes;
     
     $Petal::DECODE_CHARSET and do {
-	$res = Petal::Encode::decode ($Petal::DECODE_CHARSET, $res);
+	$res = Petal::Encode::p_decode ($Petal::DECODE_CHARSET, $res);
     };
     
     if ($OUTPUT eq 'HTML' or $OUTPUT eq 'XHTML')
     {
-	Petal::Encode::_utf8_on ($res);
+	Petal::Encode->p_utf8_on ($res);
 	$res = MKDoc::XML::DecodeHO->process ($res);
-	Petal::Encode::_utf8_off ($res);
+	Petal::Encode->p_utf8_off ($res);
     }
     
     # kill template comments
@@ -591,15 +594,6 @@ sub _canonicalize
     my $data_ref = $self->_file_data_ref;
     my $parser = $parser_type->new;
     return $canonicalizer_type->process ($parser, $data_ref);
-}
-
-
-sub _utf8_on
-{
-    my $class = shift;
-    my $res   = shift;
-    Petal::Encode::_utf8_on ($res);
-    return $res;
 }
 
 

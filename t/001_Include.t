@@ -4,7 +4,6 @@ use strict;
 use lib ('lib');
 use Test::More tests => 8;
 use Petal;
-
 sub nowarnings {
     $Petal::MEMORY_CACHE &&
     $Petal::DISK_CACHE

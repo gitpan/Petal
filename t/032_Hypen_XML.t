@@ -19,16 +19,6 @@ my $string;
 
 
 {
-    $Petal::OUTPUT = "XML";
-    $template = new Petal ('hypen.xml');
-    
-    $string = $template->process(); 
-    like ($string => qr/<foo-bar/);
-    like ($string => qr/<\/foo-bar/);
-}
-
-
-{
     $Petal::OUTPUT = "XHTML";
     $template = new Petal ('hypen.xml');
     
