@@ -76,6 +76,7 @@ sub StartTag
     $class->_define ($tag, $att);
     $class->_condition ($tag, $att);
     $class->_repeat ($tag, $att);
+    $class->_is_xinclude ($tag) and $class->_xinclude ($tag, $att) and return;
     $class->_replace ($tag, $att);
     
     my $petal = quotemeta ($Petal::NS);
@@ -144,8 +145,8 @@ sub StartTag
 		my $expression = $att->{"$petal:omit-tag"};
 		$Petal::Canonicalizer::XML::NodeStack[$#Petal::Canonicalizer::XML::NodeStack]->{'omit-tag'} = $expression;
 		push @Petal::Canonicalizer::XML::Result, (defined $att_str and $att_str) ?
-		    "<?if name=\"$expression\"?><?else?><$tag $att_str /><?end?>" :
-		    "<?if name=\"$expression\"?><?else?><$tag /><?end?>";
+		    "<?if name=\"false:$expression\"?><$tag $att_str /><?end?>" :
+		    "<?if name=\"false:$expression\"?><$tag /><?end?>";
 	    }
 	    else
 	    {
@@ -159,8 +160,8 @@ sub StartTag
 		my $expression = $att->{"$petal:omit-tag"};
 		$Petal::Canonicalizer::XML::NodeStack[$#Petal::Canonicalizer::XML::NodeStack]->{'omit-tag'} = $expression;
 		push @Petal::Canonicalizer::XML::Result, (defined $att_str and $att_str) ?
-		    "<?if name=\"$expression\"?><?else?><$tag $att_str><?end?>" :
-		    "<?if name=\"$expression\"?><?else?><$tag><?end?>";
+		    "<?if name=\"false:$expression\"?><$tag $att_str><?end?>" :
+		    "<?if name=\"false:$expression\"?><$tag><?end?>";
 	    }
 	    else
 	    {
@@ -195,6 +196,8 @@ sub EndTag
     my ($tag) = $_ =~ /^<\/\s*((?:\w|:)*)/;
     my $node = pop (@Petal::Canonicalizer::XML::NodeStack);
     
+    return if ($class->_is_xinclude ($tag));
+    
     if ( (not (defined $node->{replace} and $node->{replace})) and
 	 (uc ($tag) ne 'AREA')     and 
 	 (uc ($tag) ne 'BASE')     and 
@@ -213,7 +216,7 @@ sub EndTag
 	if (defined $node->{'omit-tag'})
 	{
 	    my $expression = $node->{'omit-tag'};
-	    push @Petal::Canonicalizer::XML::Result, "<?if name=\"not:$expression\"?><?else?></$tag><?end?>";
+	    push @Petal::Canonicalizer::XML::Result, "<?if name=\"false:$expression\"?></$tag><?end?>";
 	}
 	else
 	{

@@ -44,7 +44,7 @@ Example:
     <html xml:lang="en"
           lang="en-"
           xmlns="http://www.w3.org/1999/xhtml"
-          petal:xmlns="http://purl.org/petal/1.0/">
+          xmlns:petal="http://purl.org/petal/1.0/">
 
       Blah blah blah...
       Content of the file
@@ -145,12 +145,24 @@ $MEMORY_CACHE - If set to FALSE, Petal will not use the Petal::Disk::Memory modu
 our $MEMORY_CACHE = 1;
 
 
-our $VERSION = '0.81';
+=pod
+
+$MAX_INCLUDES - Maximum number of recursive includes before Petal stops processing.
+This is to prevent from accidental infinite recursions.
+
+=cut
+our $MAX_INCLUDES = 30;
+our $CURRENT_INCLUDES = 0;
+
+our $VERSION = '0.82';
 
 
 # this is for XML namespace support. Can't touch this :-)
 our $NS = 'petal';
 our $NS_URI = 'http://purl.org/petal/1.0/';
+
+our $XI_NS = 'xi';
+our $XI_NS_URI = 'http://www.w3.org/2001/XInclude';
 
 
 =head2 Example
@@ -170,6 +182,58 @@ our $NS_URI = 'http://purl.org/petal/1.0/';
   $Petal::OUTPUT = 'XHTML';  
 
 =cut
+
+
+=head1 TOY FUNCTIONS (For debugging or if you're curious)
+
+=head2 perl -MPetal -e canonical template.xml
+
+Displays the canonical template for template.xml.
+You can set $INPUT using by setting the PETAL_INPUT environment variable.
+You can set $OUTPUT using by setting the PETAL_OUTPUT environment variable.
+
+=cut
+sub main::canonical
+{
+    my $file = shift (@ARGV);
+    local $Petal::DISK_CACHE = 0;
+    local $Petal::MEMORY_CACHE = 0;
+    local $Petal::INPUT  = $ENV{PETAL_INPUT}  || 'XML';
+    local $Petal::OUTPUT = $ENV{PETAL_OUTPUT} || 'XHTML';
+    print ${Petal->new ($file)->_canonicalize()};
+}
+
+
+=head2 perl -MPetal -e code template.xml
+
+Displays the perl code for template.xml.
+You can set $INPUT using by setting the PETAL_INPUT environment variable.
+You can set $OUTPUT using by setting the PETAL_OUTPUT environment variable.
+
+=cut
+sub main::code
+{
+    my $file = shift (@ARGV);
+    local $Petal::DISK_CACHE = 0;
+    local $Petal::MEMORY_CACHE = 0;
+    print Petal->new ($file)->_code_disk_cached;
+}
+
+
+=head2 perl -MPetal -e lcode template.xml
+
+Displays the perl code for template.xml, with line numbers.
+You can set $INPUT using by setting the PETAL_INPUT environment variable.
+You can set $OUTPUT using by setting the PETAL_OUTPUT environment variable.
+
+=cut
+sub main::lcode
+{
+    my $file = shift (@ARGV);
+    local $Petal::DISK_CACHE = 0;
+    local $Petal::MEMORY_CACHE = 0;
+    print Petal->new ($file)->_code_with_line_numbers;
+}
 
 
 =head1 METHODS
@@ -208,6 +272,11 @@ Example:
 =cut
 sub process
 {
+    # prevent infinite includes from happening...
+    my $current_includes = $CURRENT_INCLUDES;
+    local $CURRENT_INCLUDES = $current_includes + 1;
+    return "ERROR: MAX_INCLUDES : $CURRENT_INCLUDES" if ($CURRENT_INCLUDES >= $MAX_INCLUDES);
+    
     my $self = shift;
     my $hash = undef;
     if (@_ == 1 and ref $_[0] eq 'HASH')
@@ -258,7 +327,7 @@ sub _code_with_line_numbers
       my $line_num = sprintf("%" . length(scalar(@lines)) . "d", $count);
 
       # put line number and line back together
-      "${line_num} ${cur_line}";
+      "${line_num}. ${cur_line}";
     } @lines;
 
     return join("\n", @lines);
@@ -498,6 +567,35 @@ article.
 
 This syntax is documented in the L<Petal::Doc::PIs>
 article.
+
+
+=head2 Limited Xinclude support
+
+If you want to include other templates in your main template, you can
+use a subset of the XInclude syntax as follows:
+
+  <body xmlns:xi="http://www.w3.org/2001/XInclude">
+    <xi:include href="../header/en.xml" />
+  </body>
+
+The 'href' parameter does not support URIs, no other tag than
+xi:include is supported, and no other directive than the 'href'
+parameter is supported at the moment.
+
+Also note that contrarily to the XInclude specification Petal DOES
+allow recursive includes up to $Petal::MAX_INCLUDES. This behavior
+is very useful when designing templates to display data which is
+recursive by nature such as sitemaps, fibonacci suites, etc.
+
+You can use ONLY the following Petal directives with Xinclude tags:
+
+  * on-error
+  * define
+  * condition
+  * repeat
+
+replace, content, omit-tag and attributes are NOT supported in
+conjunction with XIncludes.
 
 
 =head1 Variable expressions and modifiers

@@ -19,7 +19,8 @@ use HTML::Parser;
 use Petal::Canonicalizer::XML;
 use Petal::Canonicalizer::XHTML;
 
-use vars qw /@NodeStack @MarkedData $Canonicalizer @NameSpaces/;
+use vars qw /@NodeStack @MarkedData $Canonicalizer
+	     @NameSpaces @XI_NameSpaces/;
 
 
 # this avoid silly warnings
@@ -118,20 +119,40 @@ sub generate_events_start
     %_ = %{shift()};
     delete $_{'/'};
     
+    # process the Petal namespace...
     my $ns = (scalar @NameSpaces) ? $NameSpaces[$#NameSpaces] : $Petal::NS;
     foreach my $key (keys %_)
     {
 	my $value = $_{$key};
 	if ($value eq $Petal::NS_URI)
 	{
+	    next unless ($key =~ /^xmlns\:/);
 	    delete $_{$key};
 	    $ns = $key;
 	    $ns =~ s/^xmlns\://;
 	}
     }
-    
+
     push @NameSpaces, $ns;
     local ($Petal::NS) = $ns;
+    
+    # process the XInclude namespace
+    my $xi_ns = (scalar @XI_NameSpaces) ? $XI_NameSpaces[$#XI_NameSpaces] : $Petal::XI_NS;
+    foreach my $key (keys %_)
+    {
+	my $value = $_{$key};
+	if ($value eq $Petal::XI_NS_URI)
+	{
+	    next unless ($key =~ /^xmlns\:/);
+	    delete $_{$key};
+	    $xi_ns = $key;
+	    $xi_ns =~ s/^xmlns\://;
+	}
+    }
+    
+    push @XI_NameSpaces, $xi_ns;
+    local ($Petal::XI_NS) = $xi_ns;
+    
     $Canonicalizer->StartTag();
 }
 
@@ -141,6 +162,7 @@ sub generate_events_end
     $_ = shift;
     $_ = "</$_>";
     local ($Petal::NS) = pop (@NameSpaces);
+    local ($Petal::XI_NS) = pop (@XI_NameSpaces);
     $Canonicalizer->EndTag();
 }
 
@@ -153,7 +175,8 @@ sub generate_events_text
     $_ = $data;
     
     local ($Petal::NS) = $NameSpaces[$#NameSpaces];
-    $Canonicalizer->Text();    
+    local ($Petal::XI_NS) = $XI_NameSpaces[$#XI_NameSpaces];
+    $Canonicalizer->Text();
 }
 
 
