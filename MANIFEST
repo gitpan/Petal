@@ -38,6 +38,7 @@ t/020_Comments.t
 t/021_Canonical_Error.t
 t/022_Hashref_List.t
 t/023_Loop_Error.t
+t/024_Namespaces.t
 t/data/autoload.xml
 t/data/canonical_error.html
 t/data/comments.xml
@@ -57,6 +58,7 @@ t/data/multiple_includes/includes/footer.tmpl
 t/data/multiple_includes/includes/header.tmpl
 t/data/multiple_includes/register_form.tmpl
 t/data/multiple_includes/test.tmpl
+t/data/namespaces.xml
 t/data/nested_modifiers/test1.xml
 t/data/nested_modifiers/test2.xml
 t/data/prefix.xml
