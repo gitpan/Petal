@@ -148,6 +148,7 @@ sub StartTag
     ($tag) = $tag =~ /^<\s*((?:\w|:)*)/;
     my $att = { %_ };
     
+    $class->_on_error ($tag, $att);
     $class->_define ($tag, $att);
     $class->_condition ($tag, $att);
     $class->_repeat ($tag, $att);
@@ -176,7 +177,7 @@ sub StartTag
 		$command =~ s/^\{//;
 		$command =~ s/\}$//;
 		$command = Petal::XML_Encode_Decode::encode_backslash_semicolon ($command);
-		$command = "<?petal:var name=\"$command\"?>";
+		$command = "<?var name=\"$command\"?>";
 		$text =~ s/\Q$var\E/$command/g;
 	    }
 	    $att->{$key} = $text;
@@ -189,7 +190,7 @@ sub StartTag
 	{
 	    next if ($key =~ /^$petal:/);
 	    my $value = $att->{$key};
-	    if ($value =~ /^<\?petal:attr/)
+	    if ($value =~ /^<\?attr/)
 	    {
 		push @att_str, $value;
 	    }
@@ -206,8 +207,8 @@ sub StartTag
 	    my $expression = $att->{"$petal:omit-tag"};
 	    $NodeStack[$#NodeStack]->{'omit-tag'} = $expression;
 	    push @Result, (defined $att_str and $att_str) ?
-	        "<?petal:if name=\"$expression\"?><?petal:else?><$tag $att_str><?petal:end?>" :
-		"<?petal:if name=\"$expression\"?><?petal:else?><$tag><?petal:end?>";
+	        "<?if name=\"$expression\"?><?else?><$tag $att_str><?end?>" :
+		"<?if name=\"$expression\"?><?else?><$tag><?end?>";
 	}
 	else
 	{
@@ -244,20 +245,29 @@ sub EndTag
     
     unless (defined $node->{replace} and $node->{replace})
     {
-	if (defined $node->{'omit-tag'})
+	if (exists $node->{'omit-tag'})
 	{
 	    my $expression = $node->{'omit-tag'};
-	    push @Result, "<?petal:if name=\"$expression\"?><?petal:else?></$tag><?petal:end?>";
+	    push @Result, "<?if name=\"$expression\"?><?else?></$tag><?end?>";
 	}
 	else
 	{
 	    push @Result, "</$tag>";
-	}
+	}	
     }
     
     my $repeat = $node->{repeat} || '0';
     my $condition = $node->{condition} || '0';
-    push @Result, map { '<?petal:end?>' } 1 .. ($repeat+$condition);
+    push @Result, map { '<?end?>' } 1 .. ($repeat+$condition);
+
+    unless (defined $node->{replace} and $node->{replace})
+    {
+	if (exists $node->{'on-error'})
+	{
+	    my $expression = $node->{'on-error'};
+	    push @Result, "<?endeval errormsg=\"$expression\"?>";
+	}
+    }
 }
 
 
@@ -283,7 +293,7 @@ sub Text
 	$command =~ s/^\{//;
 	$command =~ s/\}$//;
 	$command = Petal::XML_Encode_Decode::encode_backslash_semicolon ($command);
-	$command = "<?petal:var name=\"$command\"?>";
+	$command = "<?var name=\"$command\"?>";
 	$text =~ s/\Q$var\E/$command/g;
     }
     push @Result, $text;
@@ -330,6 +340,27 @@ sub _split_expression
 }
 
 
+# _condition;
+# -----------
+#   Rewrites <tag petal:if="[expression]"> statements into
+#   <?petal:if name="[expression]"?><tag>
+sub _on_error
+{
+    my $class = shift;
+    return if ($class->_is_inside_content_or_replace());
+    
+    my $petal = quotemeta ($Petal::NS);
+    my $tag   = shift;
+    my $att   = shift;
+    my $expr  = delete $att->{"$petal:on-error"} || return;
+    
+    $expr = Petal::XML_Encode_Decode::encode_backslash_semicolon ($expr);
+    push @Result, "<?eval?>";
+    $NodeStack[$#NodeStack]->{'on-error'} = $expr;
+    return 1;
+}
+
+
 # _define;
 # --------
 #   Rewrites <tag petal:define="[name] [expression]"> statements into
@@ -347,7 +378,7 @@ sub _define
                 delete $att->{"$petal:define"} || return;
     
     $expr = Petal::XML_Encode_Decode::encode_backslash_semicolon ($expr);
-    push @Result, map { "<?petal:var name=\"set: $_\"?>" } $class->_split_expression ($expr);
+    push @Result, map { "<?var name=\"set: $_\"?>" } $class->_split_expression ($expr);
     return 1;
 }
 
@@ -368,7 +399,7 @@ sub _condition
                 delete $att->{"$petal:condition"} || return;
     
     $expr = Petal::XML_Encode_Decode::encode_backslash_semicolon ($expr);
-    my @new = map { "<?petal:if name=\"$_\"?>" } $class->_split_expression ($expr);
+    my @new = map { "<?if name=\"$_\"?>" } $class->_split_expression ($expr);
     push @Result, @new;
     $NodeStack[$#NodeStack]->{condition} = scalar @new;
     return 1;
@@ -397,7 +428,7 @@ sub _repeat
     foreach $expr (@exprs)
     {
 	$expr = Petal::XML_Encode_Decode::encode_backslash_semicolon ($expr);
-	push @new, "<?petal:for name=\"$expr\"?>"
+	push @new, "<?for name=\"$expr\"?>"
     }
     push @Result, @new;
     $NodeStack[$#NodeStack]->{repeat} = scalar @new;
@@ -422,7 +453,7 @@ sub _replace
     
     my @new = map {
 	$_ = Petal::XML_Encode_Decode::encode_backslash_semicolon ($_);
-	"<?petal:var name=\"$_\"?>";
+	"<?var name=\"$_\"?>";
     } split /(\s|\r|\n)*\;(\s|\r|\n)*/ms, $expr;
     
     push @Result, @new;
@@ -454,7 +485,7 @@ sub _attributes
 	next if ($string =~ /^\s*$/);
 	my ($attr, $expr) = $string =~ /^\s*((?:\w|\:)+)\s+(.*?)\s*$/;
 	$expr = Petal::XML_Encode_Decode::encode_backslash_semicolon ($expr);
-	$att->{$attr} = "<?petal:attr name=\"$attr\" value=\"$expr\"?>";
+	$att->{$attr} = "<?attr name=\"$attr\" value=\"$expr\"?>";
     }
     return 1;
 }
@@ -477,22 +508,11 @@ sub _content
 	       delete $att->{"$petal:inner"}    || return;
     my @new = map {
 	$_ = Petal::XML_Encode_Decode::encode_backslash_semicolon ($_);
-	"<?petal:var name=\"$_\"?>";
+	"<?var name=\"$_\"?>";
     } $class->_split_expression ($expr);
     push @Result, @new;
     $NodeStack[$#NodeStack]->{content} = 'true';
     return 1;
-}
-
-
-# _omit_tag;
-# ----------
-#   Rewrites <tag petal:omit-tag="[expression]"> as
-#   <?petal:if name="[expression]"?><tag><?petal:end?>
-sub _omit_tag
-{
-    my $class = shift;
-
 }
 
 

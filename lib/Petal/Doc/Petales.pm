@@ -1,4 +1,4 @@
-package Petal::Expressions;
+package Petal::Syntax::Petales;
 use strict;
 use warnings;
 
@@ -10,15 +10,11 @@ __END__
 
 =head1 NAME
 
-Petal::Expressions - Accessing values from Petal.
+Petal::Syntax::Petales - Petal Expression Syntax
 
 =head1 SYNOPSIS
 
 This is an article, not a module.
-
-Join the Petal mailing list:
-
-  http://lists.webarch.co.uk/mailman/listinfo/petal
 
 =head1 SUMMARY
 
@@ -31,53 +27,83 @@ In the following examples, we'll assume that the template is used as follows:
   my $hashref = some_complex_data_structure();
   my $template = new Petal ('foo.xml');
   print $template->process ( $hashref );
-  
+
+Then we will show how the Petal Expression Syntax maps to the Perl way of
+accessing these values.  
+
 
 =head1 BASIC SYNTAX
 
 
 =head2 Accessing scalar values
 
-Perl expression:
+=head3 Perl expression
 
   $hashref->{'some_value'};
 
-Petal expression:
+=head3 Petal expression
 
   some_value
 
+=head3 Example
 
-=head2 Accessing hashes
+  <!--? Replaces Hello, World with the contents of
+        $hashref->{'some_value'}
+  -->
+  <span petal:replace="some_value">Hello, World</span>
 
-Perl expression:
+
+=head2 Accessing hashes & arrays
+
+=head3 Perl expression
 
   $hashref->{'some_hash'}->{'a_key'};
 
-Petal expression
+=head3 Petal expression
 
   some_hash/a_key
 
+=head3 Example
 
-=head2 Accessing arrays
+  <!--? Replaces Hello, World with the contents
+        of $hashref->{'some_hash'}->{'a_key'}
+  -->
+  <span petal:replace="some_hash/a_key">Hello, World</span>
 
-Perl expression:
+
+=head3 Perl expression
 
   $hashref->{'some_array'}->[12]
 
-Petal expression
+=head3 Petal expression
 
   some_array/12
+
+=head3 Example
+
+  <!-- Replaces Hello, World with the contents
+       of $hashref->{'some_array'}->[12]
+  -->
+  <span petal:replace="some_array/12">Hello, World</span>
+
+Note: You're more likely to want to loop through arrays:
+
+  <!-- Loops trough the array and displays each values -->
+  <ul petal:condition="some_array">
+    <li petal:repeat="value some_array"
+        petal:content="value">Hello, World</li>
+  </ul>
 
 
 =head2 Accessing object methods
 
-Perl expressions:
+=head3 Perl expressions
 
   1. $hashref->{'some_object'}->some_method();
   2. $hashref->{'some_object'}->some_method ('foo', 'bar');
   3. $hashref->{'some_object'}->some_method ($hashref->{'some_variable')  
 
-Petal expressions:
+=head3 Petal expressions
 
   1. some_object/some_method
   2a. some_object/some_method 'foo' 'bar'
@@ -88,19 +114,27 @@ Petal expressions:
 Note that the syntax as described in 2c works only if you use strings
 which do not have spaces.
 
+=head3 Example
 
-=head2 Composings
+  <p>
+    <span petal:replace="value1">2</span> times
+    <span petal:replace="value2">2</span> equals
+    <span petal:replace="math_object/multiply value1 value2">4</span>
+  </p>
+    
+
+=head2 Composing
 
 Petal lets you traverse any data structure, i.e.
 
-Perl expression
+=head3 Perl expression
 
   $hashref->{'some_object'}
           ->some_method()
           ->{'key2'}
           ->some_other_method ( 'foo', $hash->{bar} );
 
-Petal expression
+=head3 Petal expression
 
   some_object/some_method/key2/some_other_method 'foo' bar
 
@@ -224,6 +258,7 @@ you do as follows:
 
 =head1 Expression keywords
 
+
 =head2 XML encoding / structure keyword
 
 By default Petal will encode &, <, > and " to &amp; &lt;, &gt and &quot;
@@ -231,6 +266,7 @@ respectively. However sometimes you might want to display an expression which
 is already encoded, in which case you can use the 'structure' keyword.
 
   structure my/encoded/variable
+
 
 =head2 Petal::Hash caching and fresh keyword 
 
@@ -255,13 +291,12 @@ You can use 'fresh' with 'structure' if you need to:
 
 However the reverse does not work:
 
-  <!--? BAD ?-->
-  structure fresh string:$foo/bar, ${baz/buz/blah}
+  structure fresh string:$foo/bar, ${baz/buz/blah}  <!-- VERY BAD, WON'T WORK !!! -->
 
 
 =head1 AUTHOR
 
 Copyright 2002 - Jean-Michel Hiver <jhiver@mkdoc.com> 
 
-This module free software and is distributed under the
+This module is free software and is distributed under the
 same license as Perl itself.
