@@ -1,7 +1,4 @@
 Changes
-MANIFEST			This list of files
-Makefile.PL
-README
 lib/Petal.pm
 lib/Petal/Cache/Disk.pm
 lib/Petal/Cache/Memory.pm
@@ -15,6 +12,10 @@ lib/Petal/Hash/String.pm
 lib/Petal/Hash/Test.pm
 lib/Petal/Hash/Var.pm
 lib/Petal/Parser.pm
+Makefile.PL
+MANIFEST			This list of files
+META.yml
+README
 t/001_Include.t
 t/002_Set_Modifier.t
 t/003_More_Include.t
@@ -69,7 +70,7 @@ t/060_Metal_Define.t
 t/061_Metal_Use.t
 t/062_Metal_Self_Include.t
 t/063_Nbsp.t
-t/666_entity_replace.tmpl
+t/064_Metal_Double_Include.t
 t/benchmark.pl
 t/data/access_obj_array.html
 t/data/access_obj_hash.html
@@ -110,6 +111,8 @@ t/data/language/include/fr.html
 t/data/loop_error.xml
 t/data/manipulate.html
 t/data/metal_define_macro.xml
+t/data/metal_double_include/fragment.xhtml
+t/data/metal_double_include/main.xhtml
 t/data/metal_self_include.xml
 t/data/metal_use_macro.xml
 t/data/method_param.xml
