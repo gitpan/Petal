@@ -47,6 +47,8 @@ t/025_Omit_Tag.t
 t/027_Eval.t
 t/028_Infinite_Includes.t
 t/029_Test_NS_Attributes.t
+t/030_Attributes_AndQuot.t
+t/data/attributes_andquot.xml
 t/data/autoload.xml
 t/data/canonical_error.html
 t/data/comments.xml
@@ -62,6 +64,7 @@ t/data/include/deep/index.xml
 t/data/include/included.xml
 t/data/include/index.xml
 t/data/include/index_xinclude.xml
+t/data/include/index_xinclude2.xml
 t/data/infinite_includes.xml
 t/data/interpolate.xml
 t/data/loop_error.xml
