@@ -87,7 +87,7 @@ our $CURRENT_INCLUDES = 0;
 
 
 # this is for CPAN
-our $VERSION = '1.10_09';
+our $VERSION = '2.00';
 
 
 # The CodeGenerator class backend to use.
@@ -659,6 +659,19 @@ sub _canonicalize
 =head1 NAME
 
 Petal - Perl Template Attribute Language - TAL for Perl!
+
+
+=head1 IMPORTANT NOTE 
+
+From version 2.00 onwards Petal *requires* that you use well-formed XML. This
+is because Petal now uses L<MKDoc::XML::TreeBuilder> rather than
+L<HTML::TreeBuilder> and L<XML::Parser>.
+
+In particular, this version of Petal *CAN* break backwards compatibility if you
+were using Petal's HTML mode will non well formed XHTML.
+
+If you still want to use broken XHTML, you can Petal 2.00 in conjunction with
+L<Petal::Parser::HTB> which has been created for this purpose.
 
 
 =head1 SYNOPSIS
