@@ -48,6 +48,7 @@ Lucas Saud <lucas.marinho@uol.com.br>
 Sean M. Burke <sburke@cpan.org>
 Chris Croome <chris@webarchitects.co.uk>
 Paul Arzul <patricka@mkdoc.com>
+Bruno Postle <bruno@mkdoc.com>
 Kurt Stephens <kstep@pepsdesign.com>
 Steve Purkis <spurkis@mkdoc.com>
 Holland, Mark <Mark.Holland@commerzbankib.com>
@@ -72,7 +73,7 @@ COPYRIGHT AND LICENCE
 
   Copyright (C) 2003 MKDoc Holdings Ltd.
 
-  Authors: Jean-Michel Hiver <jhiver@mkdoc.com>, 
+  Authors: Jean-Michel Hiver, 
            Fergal Daly <fergal@esatclear.ie>,
            and others.
 

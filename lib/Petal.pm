@@ -101,7 +101,7 @@ our $CURRENT_INCLUDES = 0;
 
 
 # this is for CPAN
-our $VERSION = '2.14';
+our $VERSION = '2.15';
 
 
 # The CodeGenerator class backend to use.
@@ -1054,6 +1054,48 @@ Example:
 
   <li tal:repeat="user system/user_list">$user/real_name</li>
 
+A select list with one item selected:
+
+  <select>
+    <option
+      selected="selected"
+      tal:attributes="value self/selected_lang/value"
+      tal:content="self/selected_lang/label"
+    >English</option>
+    <option
+      value="i-klingon"
+      tal:repeat="lang self/unselected_langs;"
+      tal:attributes="value lang/value"
+      tal:content="lang/label"
+    >Klingon</option>
+  </select>
+
+A table with rows of alternating colours set via CSS:
+
+  <table>
+    <div
+      tal:omit-tag=""
+      tal:repeat="audience self/audiences"
+    >
+      <tr 
+        class="odd"
+        tal:condition="true: repeat/odd"
+      >
+        <td>
+          This a odd row, it comes before the even row.
+        </td>
+      </tr>
+      <tr 
+        class="even"
+        tal:condition="true: repeat/even"
+      >
+        <td> 
+          This a even row.
+        </td>
+      </tr>
+    </div>
+  </table>
+
 Why?
 
 Repeat statements are used to loop through a list of values,
@@ -1687,7 +1729,7 @@ try to use the $Petal::INPUT = 'XHTML' option.
 =head2 other errors
 
 Either I've forgot to document it, or it's a bug. Send an email to the Petal
-mailing list or at L<mailto://jhiver@mkdoc.com>.
+mailing list.
 
 
 =head1 EXPORTS
@@ -1699,7 +1741,7 @@ None.
 
 Copyright 2003 - MKDoc Holdings Ltd.
 
-Authors: Jean-Michel Hiver <jhiver@mkdoc.com>, 
+Authors: Jean-Michel Hiver, 
          Fergal Daly <fergal@esatclear.ie>,
 	 and others.
 
@@ -1727,5 +1769,3 @@ Have a peek at the TAL / TALES / METAL specs:
   http://www.zope.org/Wikis/DevSite/Projects/ZPT/TALES
   http://www.zope.org/Wikis/DevSite/Projects/ZPT/METAL
 
-
-Any extra questions? jhiver@mkdoc.com.
