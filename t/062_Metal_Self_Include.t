@@ -15,3 +15,10 @@ my $file             = 'metal_self_include.xml';
     unlike ($s, qr/glop/);
 }
 
+$Petal::OUTPUT = 'XHTML';
+{
+    my $t = new Petal ( file => $file );
+    my $s = $t->process();
+    unlike ($s, qr/glop/);
+}
+
