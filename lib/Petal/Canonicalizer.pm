@@ -164,21 +164,13 @@ sub StartTag
 	{
 	    next if ($key =~ /^petal:/);
 	    my $text = $att->{$key};
-	    my @vars = $text =~ /((?<!\\)\$(?:\w|\.|\:)+)/g;
+	    my @vars = $text =~ /((?<!\\)\$(?:\w|\.|\:|\/)+)/g;
 	    my %vars = map { $_ => 1 } @vars;
 	    @vars = keys %vars;
 	    foreach my $var (@vars)
 	    {
 		my $command = $var;
-		if ($command =~ /\:/)
-		{
-		    $command =~ s/\:/ /;
-		    $command =~ s/^\$/:/;
-		}
-		else
-		    {
-			$command =~ s/^\$//;
-		    }
+		$command =~ s/^\$//;
 		$command = "<?petal:var name=\"$command\"?>";
 		$text =~ s/\Q$var\E/$command/g;
 	    }
@@ -228,21 +220,13 @@ sub Text
 {
     return if (_is_inside_content_or_replace());
     my $text = $_;
-    my @vars = $text =~ /((?<!\\)\$(?:\w|\.|\:)+)/g;
+    my @vars = $text =~ /((?<!\\)\$(?:\w|\.|\:|\/)+)/g;
     my %vars = map { $_ => 1 } @vars;
     @vars = keys %vars;
     foreach my $var (@vars)
     {
 	my $command = $var;
-	if ($command =~ /\:/)
-	{
-	    $command =~ s/\:/ /;
-	    $command =~ s/^\$/:/;
-	}
-	else
-	{
-	    $command =~ s/^\$//;
-	}
+	$command =~ s/^\$//;
 	$command = "<?petal:var name=\"$command\"?>";
 	$text =~ s/\Q$var\E/$command/g;
     }
@@ -292,7 +276,7 @@ sub _define
                delete $att->{'petal:def'}    ||
                delete $att->{'petal:define'} || return;
     
-    push @Result, map { "<?petal:var name=\":set $_\"?>" } _split_expression ($expr);
+    push @Result, map { "<?petal:var name=\"set: $_\"?>" } _split_expression ($expr);
     return 1;
 }
 

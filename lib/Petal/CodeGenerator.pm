@@ -101,15 +101,6 @@ sub _include
 {
     my $class = shift;
     
-    my $file = delete $token_hash{name} || delete $token_hash{file} ||
-        confess "Cannot parse $token : 'file' attribute is not defined";
-    
-    (defined $file and $file) or
-        confess "Cannot parse $token : 'file' attribute is not defined";
-    
-    my $base_dir = $petal_object->_base_dir;
-    $token_hash{base_dir} = '/';
-    $token_hash{file} = $base_dir . '/' . $file;
     my $token_hash_args = join ", ", map { $_ . ' => "' . quotemeta ($token_hash{$_}) . '"' } keys %token_hash;
     push @code, ("    " x $indent . "push \@res, Petal->new ( $token_hash_args )->process (\$hash);");
 }
@@ -213,6 +204,7 @@ sub _tokenize
 {
     my $self = shift;
     my $data_ref = shift;
+    
     my @tags  = $$data_ref =~ /(<\?petal:.*?\?>)/gs;
     my @split = split /<\?petal:.*?\?>/s, $$data_ref;
     
@@ -222,7 +214,7 @@ sub _tokenize
         push @{$tokens}, shift (@split);
         push @{$tokens}, shift (@tags) if (@tags);
     }
-    
+    push @{$tokens}, (@tags);
     return $tokens;
 }
 
