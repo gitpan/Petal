@@ -101,7 +101,7 @@ our $CURRENT_INCLUDES = 0;
 
 
 # this is for CPAN
-our $VERSION = '2.15';
+our $VERSION = '2.16';
 
 
 # The CodeGenerator class backend to use.
@@ -470,7 +470,7 @@ sub _handle_error
 	my $dump = eval { $self->_code_with_line_numbers() };
 	($dump) ? print ERROR $dump : print ERROR "(no dump available)";
 	
-	die "[PETAL ERROR] $error. Debug info written in $debug.";
+	die "[PETAL ERROR] $error. Debug info written in $debug";
     };
     
     ! $Petal::DEBUG_DUMP and do {
@@ -578,7 +578,7 @@ sub _file_data_ref
     if ($] > 5.007)
     {
 	my $encoding = Encode::resolve_alias ($DECODE_CHARSET) || 'utf8';
-	open FP, "<:$encoding", "$file_path" || die 'Cannot read-open $file_path';
+	open FP, "<:encoding($encoding)", "$file_path" or die "Cannot read-open $file_path";
     }
     else
     {
@@ -606,7 +606,7 @@ sub _file_data_ref
 sub _code_disk_cached
 {
     my $self = shift;
-    my $code = (defined $DISK_CACHE and $DISK_CACHE) ? Petal::Cache::Disk->get ($self->_file_path_with_macro) : undef;
+    my $code = (defined $DISK_CACHE and $DISK_CACHE) ? Petal::Cache::Disk->get ($self->_file_path_with_macro, $self->language) : undef;
     unless (defined $code)
     {
 	my $macro = $self->_macro() || $MT_NAME_CUR;
@@ -617,7 +617,7 @@ sub _code_disk_cached
 	my $data_ref = $self->_canonicalize;
 	load_code_generator();
 	$code = $CodeGenerator->process ($data_ref, $self);
-	Petal::Cache::Disk->set ($self->_file_path_with_macro, $code) if (defined $DISK_CACHE and $DISK_CACHE);
+	Petal::Cache::Disk->set ($self->_file_path_with_macro, $code, $self->language) if (defined $DISK_CACHE and $DISK_CACHE);
     }
     
     return $code;
@@ -630,7 +630,7 @@ sub _code_disk_cached
 sub _code_memory_cached
 {
     my $self = shift;
-    my $code = (defined $MEMORY_CACHE and $MEMORY_CACHE) ? Petal::Cache::Memory->get ($self->_file_path_with_macro) : undef;
+    my $code = (defined $MEMORY_CACHE and $MEMORY_CACHE) ? Petal::Cache::Memory->get ($self->_file_path_with_macro, $self->language) : undef;
     unless (defined $code)
     {
 	my $code_perl = $self->_code_disk_cached;
@@ -656,7 +656,7 @@ sub _code_memory_cached
 	    $code = $VAR1;
 	}
 	
-	Petal::Cache::Memory->set ($self->_file_path_with_macro, $code) if (defined $MEMORY_CACHE and $MEMORY_CACHE);	
+	Petal::Cache::Memory->set ($self->_file_path_with_macro, $code, $self->language) if (defined $MEMORY_CACHE and $MEMORY_CACHE);	
     }
     
     return $code;
@@ -909,9 +909,9 @@ directory list use an arrayref.
 
 Defines the format of the template files.  Recognised values are:
 
-  'HTML'  - Petal will use HTML::TreeBuilder to parse the template
-  'XHTML' - Alias for 'HTML'
-  'XML'   - Petal will use XML::Parser to parse the template
+  'HTML'  - Alias for 'XHTML'
+  'XHTML' - Petal will use Petal::Parser to parse the template
+  'XML'   - Petal will use Petal::Parser to parse the template
 
 
 =head2 output => 'HTML' | 'XHTML' | 'XML' (default: 'XML')
@@ -1739,7 +1739,7 @@ None.
 
 =head1 AUTHOR
 
-Copyright 2003 - MKDoc Holdings Ltd.
+Copyright 2003 - MKDoc Ltd.
 
 Authors: Jean-Michel Hiver, 
          Fergal Daly <fergal@esatclear.ie>,

@@ -6,6 +6,7 @@ lib/Petal/Cache/Memory.pm
 lib/Petal/Canonicalizer/XHTML.pm
 lib/Petal/Canonicalizer/XML.pm
 lib/Petal/CodeGenerator.pm
+lib/Petal/Cookbook.pod
 lib/Petal/Deprecated.pm
 lib/Petal/Entities.pm
 lib/Petal/Functions.pm
@@ -87,6 +88,9 @@ t/080_Petal_TranslationService_h4x0r.t
 t/081_Petal_I18NProcessor.t
 t/082_Petal_Gettext.t
 t/083_test_attributes_chars.t
+t/084_Cookbook.t
+t/085_lang_include_memcache.t
+t/086_lang_include_diskcache.t
 t/benchmark.pl
 t/data/access_obj_array.html
 t/data/access_obj_hash.html
@@ -100,6 +104,7 @@ t/data/children.xml
 t/data/comment_does_not_die.xml
 t/data/comments.xml
 t/data/content_encoded.html
+t/data/cookbook.html
 t/data/decl.xml
 t/data/delete_attribute.xml
 t/data/dummy_data.xml
