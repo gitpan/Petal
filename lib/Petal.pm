@@ -84,7 +84,7 @@ our $CURRENT_INCLUDES = 0;
 
 
 # this is for CPAN
-our $VERSION = '1.03';
+our $VERSION = '1.04';
 
 
 # The CodeGenerator class backend to use.
@@ -344,7 +344,7 @@ sub _handle_error
 	ref $error and do {
 	    print ERROR "=============\n";
 	};
-	print "\n";
+	print ERROR "\n";
 	
 	print ERROR "Petal object dump:\n";
 	print ERROR "==================\n";
@@ -497,7 +497,7 @@ sub _code_memory_cached
 	my $code_perl = $self->_code_disk_cached;
         my $VAR1 = undef;
 	
-	if (0) # if ($TAINT) - doesn't work with repeat object
+	if ($TAINT)
 	{
 	    # important line, don't remove
 	    ($code_perl) = $code_perl =~ m/^(.+)$/s;
