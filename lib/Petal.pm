@@ -133,7 +133,7 @@ $MEMORY_CACHE - If set to FALSE, Petal will not use the Petal::Disk::Memory modu
 our $MEMORY_CACHE = 1;
 
 
-our $VERSION = '0.73';
+our $VERSION = '0.74';
 
 
 =head2 Example
@@ -192,11 +192,28 @@ Example:
 sub process
 {
     my $self = shift;
-   
+    my $hash = undef;
+    if (@_ == 1 and ref $_[0] eq 'HASH')
+    {
+	my $tied = tied %{$_[0]};
+	if ($tied and ref $tied eq 'Petal::Hash')
+	{
+	    $hash = new Petal::Hash (%{$tied});
+	}
+	else
+	{
+	    $hash = new Petal::Hash (%{$_[0]});
+	}
+    }
+    else
+    {
+	$hash = new Petal::Hash (@_);
+    }
+    
     # make the hash highly magical
-    my $hash = (@_ == 1 and ref $_[0] eq 'HASH') ?
-        new Petal::Hash (%{$_[0]}) :
-        new Petal::Hash (@_);
+    #my $hash = (@_ == 1 and ref $_[0] eq 'HASH') ?
+    #    new Petal::Hash (%{$_[0]}) :
+    #    new Petal::Hash (@_);
     
     my $coderef = $self->_code_memory_cached;
     my $res = undef;

@@ -14,6 +14,7 @@ lib/Petal/Hash/String.pm
 lib/Petal/Hash/Var.pm
 lib/Petal/Parser/HTMLWrapper.pm
 lib/Petal/Parser/XMLWrapper.pm
+lib/Petal/XML_Encode_Decode.pm
 t/001_Include.t
 t/002_Set_Modifier.t
 t/003_More_Include.t
@@ -36,6 +37,7 @@ t/019_Autoload.t
 t/020_Comments.t
 t/021_Canonical_Error.t
 t/022_Hashref_List.t
+t/023_Loop_Error.t
 t/data/autoload.xml
 t/data/canonical_error.html
 t/data/comments.xml
@@ -49,6 +51,7 @@ t/data/if.xml
 t/data/include/included.xml
 t/data/include/index.xml
 t/data/interpolate.xml
+t/data/loop_error.xml
 t/data/method_param.xml
 t/data/multiple_includes/includes/footer.tmpl
 t/data/multiple_includes/includes/header.tmpl
