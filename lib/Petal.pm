@@ -13,11 +13,11 @@ use Petal::Canonicalizer::XML;
 use Petal::Canonicalizer::XHTML;
 use Petal::Functions;
 use Petal::Entities;
+use Petal::Encode;
 use File::Spec;
 use Carp;
 use Safe;
 use Data::Dumper;
-use Encode;
 use MKDoc::XML::DecodeHO;
 use strict;
 use warnings;
@@ -86,7 +86,7 @@ our $CURRENT_INCLUDES = 0;
 
 
 # this is for CPAN
-our $VERSION = '1.10_01';
+our $VERSION = '1.10_02';
 
 
 # The CodeGenerator class backend to use.
@@ -286,32 +286,10 @@ sub _include_compute_path
 sub process
 {
     my $self = shift;
+    $self->_process_absolutize_pathes();
     
-    # sets $BASE_DIR, @BASE_DIR and $self->{base_dir} to absolute paths once
-    # because File::Spec::rel2abs() can be quite expensive
-    $BASE_DIR = File::Spec->rel2abs ($BASE_DIR) if (defined $BASE_DIR and substr ($BASE_DIR, 0, 1) ne '/');
-    
-    @BASE_DIR = ( map { substr ($_, 0, 1) ne '/' ? File::Spec->rel2abs ($_) : $_ }
-		  map { defined $_ ? $_ : () } @BASE_DIR );
-
-    if ($self->{base_dir})
-    {
-	if (ref $self->{base_dir})
-	{
-	    $self->{base_dir} = [
-		map { substr ($_, 0, 1) ne '/' ? File::Spec->rel2abs ($_) : $_ }
-		map { defined $_ ? $_ : () } @{$self->{base_dir}}
-	       ] if (defined $self->{base_dir});
-	}
-	else
-	{
-	    $self->{base_dir} = File::Spec->rel2abs ($self->{base_dir}) unless (substr ($self->{base_dir}, 0, 1) ne '/');
-	}
-    }
-    
-    # ok, from there on we need to override any global
-    # variable with stuff that might have been specified
-    # when constructing the object
+    # ok, from there on we need to override any global variable with stuff
+    # that might have been specified when constructing the object
     local $TAINT              = defined $self->{taint}              ? $self->{taint}              : $TAINT;
     local $ERROR_ON_UNDEF_VAR = defined $self->{error_on_undef_var} ? $self->{error_on_undef_var} : $ERROR_ON_UNDEF_VAR;
     local $DISK_CACHE         = defined $self->{disk_cache}         ? $self->{disk_cache}         : $DISK_CACHE;
@@ -320,7 +298,7 @@ sub process
     local $INPUT              = defined $self->{input}              ? $self->{input}              : $INPUT;
     local $OUTPUT             = defined $self->{output}             ? $self->{output}             : $OUTPUT;
     local $BASE_DIR           = defined $self->{base_dir} ? do { ref $self->{base_dir} ? undef : $self->{base_dir} } : $BASE_DIR;
-    local @BASE_DIR           = defined $self->{base_dir} ? do { ref $self->{base_dir} ? @{$self->{base_dir}} : undef } : @BASE_DIR;
+    local @BASE_DIR           = defined $self->{base_dir} ? do { ref $self->{base_dir} ? @{$self->{base_dir}} : () } : @BASE_DIR;
     local $LANGUAGE           = defined $self->{default_language}   ? $self->{default_language}   : $LANGUAGE;
     local $DEBUG_DUMP         = defined $self->{debug_dump}         ? $self->{debug_dump}         : $DEBUG_DUMP;
     local $DECODE_CHARSET     = defined $self->{decode_charset}     ? $self->{decode_charset}     : $DECODE_CHARSET;
@@ -342,12 +320,46 @@ sub process
 	$res = $coderef->($hash);
 	
 	$Petal::ENCODE_CHARSET and do {
-	    $res = Encode::encode ($Petal::ENCODE_CHARSET, $res);
+	    $res = Petal::Encode::encode ($Petal::ENCODE_CHARSET, $res);
 	};
     };
     
     $self->_handle_error ($@) if (defined $@ and $@);
     return $res;
+}
+
+
+# File::Spec->rel2abs() is pretty slow since it uses Cwd which does a
+# super-ugly backtick. Hence this method absolutizes base directories
+# only once. It is necessary to work with absolute base directories to
+# avoid cache conflicts.
+sub _process_absolutize_pathes
+{
+    my $self = shift;
+    
+    $BASE_DIR = File::Spec->rel2abs ($BASE_DIR) unless (
+	File::Spec->file_name_is_absolute ($BASE_DIR)
+	 );
+    
+    @BASE_DIR = ( map { File::Spec->file_name_is_absolute ($BASE_DIR) ? $_ : File::Spec->rel2abs ($_) }
+		  map { defined $_ ? $_ : () } @BASE_DIR );
+    
+    if ($self->{base_dir})
+    {
+	if (ref $self->{base_dir})
+	{
+	    $self->{base_dir} = [
+		map { File::Spec->file_name_is_absolute ($BASE_DIR) ? $_ : File::Spec->rel2abs ($_) }
+		map { defined $_ ? $_ : () } @{$self->{base_dir}}
+	       ] if (defined $self->{base_dir});
+	}
+	else
+	{
+	    $self->{base_dir} = File::Spec->rel2abs ($self->{base_dir}) unless (
+		File::Spec->file_name_is_absolute ($self->{base_dir})
+		 );
+	}
+    }
 }
 
 
@@ -475,14 +487,14 @@ sub _file_data_ref
     no bytes;
     
     $Petal::DECODE_CHARSET and do {
-	$res = Encode::decode ($Petal::DECODE_CHARSET, $res);
+	$res = Petal::Encode::decode ($Petal::DECODE_CHARSET, $res);
     };
     
     if ($OUTPUT eq 'HTML' or $OUTPUT eq 'XHTML')
     {
-	Encode::_utf8_on ($res);
+	Petal::Encode::_utf8_on ($res);
 	$res = MKDoc::XML::DecodeHO->process ($res);
-	Encode::_utf8_off ($res);
+	Petal::Encode::_utf8_off ($res);
     }
     
     # kill template comments
@@ -586,7 +598,7 @@ sub _utf8_on
 {
     my $class = shift;
     my $res   = shift;
-    Encode::_utf8_on ($res);
+    Petal::Encode::_utf8_on ($res);
     return $res;
 }
 
