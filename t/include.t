@@ -8,7 +8,7 @@
 use lib ('lib');
 use Test;
 
-BEGIN {print "1..2\n";}
+BEGIN {print "1..4\n";}
 END {print "not ok 1\n" unless $loaded;}
 use Petal;
 $loaded = 1;
@@ -20,23 +20,12 @@ print "ok 1\n";
 # Insert your test code below, the Test module is use()ed here so read
 # its man page ( perldoc Test ) for help writing this test script.
 
-my $petal = new Petal (
-    base_dir => './t/data/set_modifier',
-    file => 'index.xml',
-    no_memory_cache => 1,
-    no_disk_cache => 1
-   );
+my $petal = new Petal ( base_dir => './t/data/include', file => 'index.xml', disk_cache => 0 );
+($petal->_base_dir =~ /\/t\/data\/include$/) ? print "ok 2\n" : (print "not ok 2\n" and exit);
 
-my $res = $petal->process (
-    title => '__TAG__',
-    settest => 'blah'
-);
+($petal->process =~ /__INCLUDED__/) ? print "ok 3\n" : print "not ok 3\n";
 
-# test that we have __TAG__ twice
-my @capture = ($res =~ /(__TAG__)/g);
-(scalar @capture == 2) ? print "ok 2\n" : print "not ok 2\n";
-
-
+($petal->process =~ /__INCLUDED__\s+<\/body>/) ? print "not ok 4\n" : print "ok 4\n";
 1;
 
 

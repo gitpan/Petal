@@ -50,7 +50,8 @@ use Petal::Parser::HTMLWrapper;
 use strict;
 use warnings;
 use Carp;
-
+use Safe;
+use File::Spec;
 
 # these are used as local variables when the XML::Parser
 # is crunching templates...
@@ -68,6 +69,9 @@ $Petal::PARSER - Currently acceptable values are
 
 This variable defaults to 'ANY'
 
+$Petal::TAINT - Default value for the 'taint' option which can
+be passed to the constructor (see below). Defaults to FALSE.
+
 $Petal::BASE_DIR - Default value for the 'base_dir' option which can be
 passed to the constructor (see below). Defaults to undef.
 
@@ -77,12 +81,14 @@ be passed to the constructor (see below). Defaults to TRUE.
 $Petal::MEMORY_CACHE - Default value for the 'memory_cache' option which
 can be passed to the constructor (see below). Defaults to TRUE.
 
-$Petal::VERSION - Module version
+$Petal::VERSION - Module version.
+
 =cut
-our $BASE_DIR = '/';
-our $DISK_CACHE = 1;
+our $TAINT         = 0;
+our $BASE_DIR      = '/';
+our $DISK_CACHE    = 1;
 our $MEMORY_CACHE  = 1;
-our $PARSER = 'ANY';
+our $PARSER        = 'ANY';
 
 our $PARSERS = {
     'XML'  => 'Petal::Parser::XMLWrapper',
@@ -90,7 +96,7 @@ our $PARSERS = {
     'ANY'  => [ 'Petal::Parser::XMLWrapper', 'Petal::Parser::HTMLWrapper' ],
 };
 
-our $VERSION = '0.2';
+our $VERSION = '0.3';
 
 =head1 METHODS
 
@@ -107,12 +113,16 @@ Instanciates a new Petal object. %options can include:
 * memory_cache - Disables the use of the Petal::Cache::Memory module.
   Defaults to $Petal::MEMORY_CACHE.
 
+* taint - If set to TRUE, makes Perl 'Taint Mode' happy. Defaults
+  to $TAINT.
+
 Example:
 
   my $template = new Petal (
       file       => 'foo.html',
       base_dir   => '.',
-      disk_cache => 0
+      disk_cache => 0,
+      taint => 1,
   );
 
 =cut
@@ -190,6 +200,9 @@ sub _base_dir
     $self->{base_dir} = shift if (@_);
     
     my $base_dir = $self->{base_dir} || $BASE_DIR || '/';
+    $base_dir = File::Spec->canonpath ($base_dir);
+    $base_dir = File::Spec->rel2abs ($base_dir) unless ($base_dir =~ /^\//);
+    
     $base_dir =~ s/\/$//;
     return $base_dir;
 }
@@ -238,7 +251,7 @@ sub _code_disk_cached
     {
 	my $data_ref = $self->_file_data_ref;
 	$data_ref  = $self->_canonicalize;
-	$code = Petal::CodeGenerator->process ($data_ref);
+	$code = Petal::CodeGenerator->process ($data_ref, $self);
 	Petal::Cache::Disk->set ($file, $code) if ($self->_disk_cache);
     }
     return $code;
@@ -256,6 +269,17 @@ sub _disk_cache
 }
 
 
+# $self->_taint;
+# -------------------
+#   Returns TRUE if this object uses the disk cache, FALSE otherwise
+sub _taint
+{
+    my $self = shift;
+    return $self->{taint} if (defined $self->{taint});
+    return $TAINT;
+}
+
+
 # $self->_code_memory_cached;
 # ---------------------------
 #   Returns the Perl code data, using the disk cache if
@@ -268,11 +292,25 @@ sub _code_memory_cached
     unless (defined $code)
     {
 	my $code_perl = $self->_code_disk_cached;
-	my $VAR1 = undef;
-	eval "$code_perl";
-	confess $@ if (defined $@ and $@);
-	$code = $VAR1;
-	Petal::Cache::Memory->set ($file, $code) if ($self->_memory_cache);
+        my $VAR1 = undef;
+	
+	if ($self->_taint)
+	{
+	    # important line, don't remove
+	    ($code_perl) = $code_perl =~ m/^(.+)$/s;
+	    my $cpt = Safe->new ("Petal::CPT");
+	    $cpt->reval($code_perl);
+	    die $@ if ($@);
+	    $code = $Petal::CPT::VAR1;
+	}
+	else
+	{
+	    eval "$code_perl";
+	    confess $@ if (defined $@ and $@);
+	    $code = $VAR1;
+	}
+	
+        Petal::Cache::Memory->set ($file, $code) if ($self->_memory_cache);
     }
     return $code;
 }
@@ -602,15 +640,6 @@ variable interpolation with that syntax, so that's half a syntax ;-)
 
 =head1 XML Declaration Syntax
 
-=head2 Includes
-
-  <?petal:include file="path/relative/to/base_dir/template.html"?>
-
-Note that there is no protection against recursive includes. The include
-is done at runtime rather than compile time, which enables you to
-construct templates that have a recursive behavior (useful for
-hierarchical sitemaps for example)...
-
 =head2 Variables and Modifiers
 
   <?petal:var name="document.title"?>
@@ -666,9 +695,46 @@ also provides the following variables for you inside the loop:
     $__odd__      - is the count odd
   <?end?>
 
-Again these variables are scoped, you can safely nest loops, ifs and
-includes as much as you like and everything should be fine. And if it's
-not, it's a bug :-)
+Again these variables are scoped, you can safely nest loops, ifs etc...
+as much as you like and everything should be fine. And if it's not,
+it's a bug :-)
+
+
+=head1 Includes
+
+Petal fully support includes using the following syntax:
+
+<?petal:include file="include.xml"?>
+
+And it will include the file 'include.xml', using the current object
+base_dir attribute. Petal includes occur at RUN TIME. That means that
+there is NO SUPPORT to prevent infinite includes, which is not so much
+of a deal since it happens at run time...
+
+This should let you build templates which have a recursive behavior
+which can be useful to apply templates to any tree-shaped structure.
+
+Because the include happens at run time, you need to specify any Petal
+options which you might want to use in the template, i.e.
+
+<?petal:include file="include.xml" disk_cache="0" taint="1" ?>
+
+You cannot specify base_dir, which is inherited from the parent template.
+
+If you want use XML::Parser to include files, you should make sure that
+the included files are valid XML themselves... FYI XML::Parser chokes on this:
+
+<p>foo</p>
+<p>bar</p>
+
+But this works:
+
+<div>
+  <p>foo</p>
+  <p>bar</p>
+</div>
+
+(having only one top element is part of the XML spec).
 
 
 =head1 EXPORT
@@ -686,18 +752,21 @@ squash 'em all! Begon jaune a l'attaque!
 
 Jean-Michel Hiver <jhiver@mkdoc.com>
 
-This module free software and has the same license as Perl itself.
+This module free software and is distributed under the
+same license as Perl itself.
 
+Thanks to William McKee <william@knowmad.com> for his useful
+suggestions, patches, and bug reports.
 
 =head1 SEE ALSO
 
-  Petal::Hash
-  Petal::Hash::Var
-  Petal::Parser::XMLWrapper
-  Petal::Parser::HTMLWrapper
-  Petal::Canonicalizer
-  Petal::CodeGenerator
-  Petal::Cache::Disk
-  Petal::Cache::Memory
+  L<Petal::Hash>
+  L<Petal::Hash::Var>
+  L<Petal::Parser::XMLWrapper>
+  L<Petal::Parser::HTMLWrapper>
+  L<Petal::Canonicalizer>
+  L<Petal::CodeGenerator>
+  L<Petal::Cache::Disk>
+  L<Petal::Cache::Memory>
 
 =cut
