@@ -1,5 +1,8 @@
 Revision history for Petal.
 
+1.10_07
+	- Added incomplete METAL implementation
+
 1.10_06
 	- Uncommented TAINT stuff (again!)
 	- Refactored to work with MKDoc::XML 0.60

@@ -87,7 +87,7 @@ our $CURRENT_INCLUDES = 0;
 
 
 # this is for CPAN
-our $VERSION = '1.10_06';
+our $VERSION = '1.10_07';
 
 
 # The CodeGenerator class backend to use.
@@ -106,6 +106,10 @@ our $NS_URI = 'http://purl.org/petal/1.0/';
 
 our $XI_NS = 'xi';
 our $XI_NS_URI = 'http://www.w3.org/2001/XInclude';
+
+our $MT_NS       = 'metal';
+our $MT_NS_URI   = 'http://xml.zope.org/namespaces/metal';
+our $MT_NAME_CUR = 'main';
 
 
 # Displays the canonical template for template.xml.
@@ -174,14 +178,31 @@ sub new
 # find which template we can use.
 sub _initialize
 {
+    my $self  = shift;
+    my $file  = $self->{file};
+    if ($file =~ /#/)
+    {
+	my ($file, $macro) = split /#/, $file, 2;
+	$self->{file}  = $file;
+	$self->_initialize_lang();
+	$self->{file} .= "#$macro";
+    }
+    else
+    {
+	$self->_initialize_lang();
+    }
+}
+
+
+sub _initialize_lang
+{
     my $self = shift;
     my $lang = $self->language() || return;
-    
     my @dirs = $self->base_dir();
-    @dirs = map { File::Spec->canonpath ("$_/$self->{file}") } @dirs;
+    @dirs    = map { File::Spec->canonpath ("$_/$self->{file}") } @dirs;
     
-    $self->{file} =~ s/\/$//;
-    my $filename = Petal::Functions::find_filename ($lang, @dirs);
+    $self->{file}  =~ s/\/$//;
+    my $filename   = Petal::Functions::find_filename ($lang, @dirs);
     $self->{file} .= "/$filename" if ($filename);
 }
 
@@ -241,6 +262,13 @@ sub _include_compute_path
 {
     my $self  = shift;
     my $file  = shift;
+    
+    # this is for metal self-includes
+    if ($file =~ /^#/)
+    {
+	$file = $self->{file} . $file;
+    }
+    
     return $file unless ($file =~ /^\./);
     
     my $path = $self->{file};
@@ -451,6 +479,25 @@ sub _file
 }
 
 
+sub _macro
+{
+    my $self = shift;
+    my $file = $self->_file;
+    $file =~ s/^.*#// || return;
+    return $file;
+}
+
+
+sub _file_path_with_macro
+{
+    my $self  = shift;
+    my $file  = $self->_file_path;
+    my $macro = $self->_macro;
+    my $res   = $macro ? "$file#$macro" : $file;
+    return $res;
+}
+
+
 # $self->_file_path;
 # ------------------
 #   computes the file of the absolute path where the template
@@ -459,6 +506,7 @@ sub _file_path
 {
     my $self = shift;
     my $file = $self->_file;
+    $file =~ s/#.*$//;
     my @dirs = $self->base_dir;
     
     foreach my $dir (@dirs)
@@ -483,6 +531,7 @@ sub _file_data_ref
 {
     my $self      = shift;
     my $file_path = $self->_file_path;
+    $file_path =~ s/#.*$//;
     
     use bytes;
     open FP, "<$file_path" || die 'Cannot read-open $file_path';
@@ -511,20 +560,24 @@ sub _file_data_ref
 
 # $self->_code_disk_cached;
 # -------------------------
-#   Returns the Perl code data, using the disk cache if
-#   possible
+# Returns the Perl code data, using the disk cache if possible
 sub _code_disk_cached
 {
     my $self = shift;
-    my $file = $self->_file_path;
-    my $code = (defined $DISK_CACHE and $DISK_CACHE) ? Petal::Cache::Disk->get ($file) : undef;
+    my $code = (defined $DISK_CACHE and $DISK_CACHE) ? Petal::Cache::Disk->get ($self->_file_path_with_macro) : undef;
     unless (defined $code)
     {
+	my $macro = $self->_macro() || $MT_NAME_CUR;
+	
+	local ($MT_NAME_CUR);
+	$MT_NAME_CUR = $macro;
+	
 	my $data_ref = $self->_canonicalize;
 	load_code_generator();
 	$code = $CodeGenerator->process ($data_ref, $self);
-	Petal::Cache::Disk->set ($file, $code) if (defined $DISK_CACHE and $DISK_CACHE);
+	Petal::Cache::Disk->set ($self->_file_path_with_macro, $code) if (defined $DISK_CACHE and $DISK_CACHE);
     }
+    
     return $code;
 }
 
@@ -535,8 +588,7 @@ sub _code_disk_cached
 sub _code_memory_cached
 {
     my $self = shift;
-    my $file = $self->_file_path;
-    my $code = (defined $MEMORY_CACHE and $MEMORY_CACHE) ? Petal::Cache::Memory->get ($file) : undef;
+    my $code = (defined $MEMORY_CACHE and $MEMORY_CACHE) ? Petal::Cache::Memory->get ($self->_file_path_with_macro) : undef;
     unless (defined $code)
     {
 	my $code_perl = $self->_code_disk_cached;
@@ -545,12 +597,13 @@ sub _code_memory_cached
 	eval "$code_perl";
 	confess ($@ . "\n" . $self->_code_with_line_numbers) if $@;
 	$code = $VAR1;
-
-	Petal::Cache::Memory->set ($file, $code) if (defined $MEMORY_CACHE and $MEMORY_CACHE);	
+	
+	Petal::Cache::Memory->set ($self->_file_path_with_macro, $code) if (defined $MEMORY_CACHE and $MEMORY_CACHE);	
     }
     
     return $code;
 }
+
 
 =cut
 
@@ -1246,6 +1299,81 @@ You can ONLY use the following Petal directives with Xinclude tags:
 
 C<replace>, C<content>, C<omit-tag> and C<attributes> are NOT supported in
 conjunction with XIncludes.
+
+
+=head1 MORE INCLUDES: METAL
+
+Petal now supports a subset of the METAL specification, which is a very WYSIWYG
+compatible way of doing includes. The current implementation supports only two
+metal statements: define-macro and use-macro.
+
+
+=head2 define-macro
+
+In order to define a macro inside a file (i.e. a fragment to be included), you
+use the metal:use-macro directive. For example:
+
+  File foo.xml
+  ============
+
+  <html>
+    <body>
+      <p metal:define-macro="footer">
+        (c) Me (r)(tm) (pouet pouet)
+      </p>
+    </body>
+  </html>
+
+
+=head2 use-macro
+
+In order to use a previously defined macro, you use the metal:define-macro directive.
+For example:
+
+  File bar.xml
+  ============
+
+  <html>
+    <body>
+      ... plenty of content ...
+
+      <p metal:use-macro="foo.xml#footer">
+        Page Footer.
+      </p>
+    </body>
+  </html>
+
+
+=head2 self includes
+
+In Zope, METAL macros are expanded first, and then the TAL instructions are processed.
+However with Petal, METAL macros are expanded at run-time just like regular includes,
+which allows for recursive macros.
+
+This example templates a sitemap, which on a hierarchically organized site would
+be recursive by nature:
+
+  <html>
+    <body>
+      <p>Sitemap:</p>
+
+      <li metal:define-macro="recurse">
+        <a href="#"
+           petal:attributes="href child/Full_Path" 
+           petal:content="child/Title"
+        >Child Document Title</a>
+        <ul 
+          petal:define="children child/Children"
+          petal:condition="children"
+          petal:repeat="child children"
+        >
+          <li metal:use-macro="#recurse">Dummy Child 1</li>
+          <li petal:replace="nothing">Dummy Child 2</li>
+          <li petal:replace="nothing">Dummy Child 3</li>
+        </ul>
+      </li>
+    </body>
+  </html>
 
 
 =head1 EXPRESSIONS AND MODIFIERS
