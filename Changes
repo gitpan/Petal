@@ -1,5 +1,10 @@
 Revision history for Petal.
 
+0.72 Fri Sep 20 12:44:43 2002
+	- Fixed a variable interpolation bug ($align - $align_opposite)
+	- Fixed another loop scoping bug
+	- Fixed loop scoping bug
+
 0.71 Thu Sep 12 14:39:58 2002
 	- Fixed warning in Petal::Canonicalizer::XML.pm
 	- Updated documentation
