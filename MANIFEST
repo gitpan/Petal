@@ -39,6 +39,7 @@ t/021_Canonical_Error.t
 t/022_Hashref_List.t
 t/023_Loop_Error.t
 t/024_Namespaces.t
+t/025_Omit_Tag.t
 t/data/autoload.xml
 t/data/canonical_error.html
 t/data/comments.xml
@@ -61,6 +62,7 @@ t/data/multiple_includes/test.tmpl
 t/data/namespaces.xml
 t/data/nested_modifiers/test1.xml
 t/data/nested_modifiers/test2.xml
+t/data/omit-tag.xml
 t/data/prefix.xml
 t/data/quoted_params.xml
 t/data/set_modifier/index.xml
