@@ -37,7 +37,7 @@ sub process
 	    };
     } @{$tokens};
     
-    return join '', map { defined $_ ? $_ : () } @res;
+    return join '', @res;
 }
 
 
