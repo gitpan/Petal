@@ -154,7 +154,7 @@ This is to prevent from accidental infinite recursions.
 our $MAX_INCLUDES = 30;
 our $CURRENT_INCLUDES = 0;
 
-our $VERSION = '0.86';
+our $VERSION = '0.87';
 
 
 =pod
@@ -332,22 +332,9 @@ sub process
     
     my $self = shift;
     my $hash = undef;
-    if (@_ == 1 and ref $_[0] eq 'HASH')
-    {
-	my $tied = tied %{$_[0]};
-	if ($tied and ref $tied eq 'Petal::Hash')
-	{
-	    $hash = new Petal::Hash (%{$tied});
-	}
-	else
-	{
-	    $hash = new Petal::Hash (%{$_[0]});
-	}
-    }
-    else
-    {
-	$hash = new Petal::Hash (@_);
-    }
+    if (ref $_[0] eq 'Petal::Hash') { $hash = shift }
+    elsif (ref $_[0] eq 'HASH')     { $hash = new Petal::Hash (%{shift()}) }
+    else                            { $hash = new Petal::Hash (@_)         }
     
     my $coderef = $self->_code_memory_cached;
     my $res = undef;
