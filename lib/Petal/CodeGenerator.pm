@@ -45,6 +45,9 @@ sub process
     $indent++;
     push @code, "    " x $indent . "my \$hash = shift;";
     push @code, "    " x $indent . "my \@res = ();";
+
+    # WLM's changes - predefine @array var
+    push @code, "    " x $indent . "my \@array;";
     
     foreach $token (@{$tokens})
     {
@@ -56,6 +59,7 @@ sub process
           CASE:
             for ($token_name)
 	    {
+                /^attr$/      and do { $class->_attr;    last CASE };
                 /^include$/   and do { $class->_include; last CASE };
 		/^var$/       and do { $class->_var;     last CASE };
 		/^if$/        and do { $class->_if;      last CASE };
@@ -122,6 +126,7 @@ sub _var
     $tmp =~ s/\..*//;
     $variables->{$tmp} = 1;
     
+    $variable =~ s/\'/\\\'/g;
     push @code, ("    " x $indent . "push \@res, \$hash->{'$variable'};");
 }
 
@@ -142,7 +147,35 @@ sub _if
     $tmp =~ s/\..*//;
     $variables->{$tmp} = 1;
     
+    $variable =~ s/\'/\\\'/g;
     push @code, ("    " x $indent . "if (\$hash->{'$variable'}) {");
+    $indent++;
+}
+
+
+# $class->_attr;
+# --------------
+#   process a <?petal:attr name="blah"?> statement
+sub _attr
+{
+    my $attribute = $token_hash{name} or
+        confess "Cannot parse $token : 'name' attribute is not defined";
+
+    my $variable = $token_hash{value} or
+        confess "Cannot parse $token : 'value' attribute is not defined";
+    
+    (defined $variable and $variable) or
+        confess "Cannot parse $token : 'value' attribute is not defined";
+    
+    # set the variable in the $variables hash
+    my $tmp = $variable;
+    $tmp =~ s/\..*//;
+    $variables->{$tmp} = 1;
+    
+    $variable =~ s/\'/\\\'/g;
+    push @code, ("    " x $indent . "if (\$hash->{'$variable'}) {");
+    push @code, ("    " x ++$indent . "push \@res, $attribute . '=\"' . \$hash->{'$variable'} . '\"'");
+    push @code, ("    " x --$indent . "}");
     $indent++;
 }
 
@@ -156,7 +189,7 @@ sub _else
     push @code, ("    " x $indent . "}");
     push @code, ("    " x $indent . "else {");
     $indent++;
-};
+}
 
 
 # $class->_for;
@@ -175,13 +208,14 @@ sub _for
     
     (defined $as and $as) or
     confess "Cannot parse $token : 'as' attribute is not defined";
-    
+
     # set the variable in the $variables hash
     my $tmp = $variable;
     $tmp =~ s/\..*//;
     $variables->{$tmp} = 1;
     
-    push @code, ("    " x $indent . "my \@array = \@{\$hash->{'$variable'}};");
+    $variable =~ s/\'/\\\'/g;
+    push @code, ("    " x $indent . "\@array = \@{\$hash->{'$variable'}};");
     push @code, ("    " x $indent . "for (my \$i=0; \$i < \@array; \$i++) {");
     $indent++;
     push @code, ("    " x $indent . "my \$hash = new Petal::Hash (\%{\$hash});");
