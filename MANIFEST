@@ -60,6 +60,7 @@ t/040_Tests_With_Zero.t
 t/041_Entities.t
 t/042_Path_Prefix.t
 t/043_Basic.t
+t/044_Comment_With_PI.t
 t/050_Opt_base_dir.t
 t/051_Opt_in_out.t
 t/052_Opt_language.t
@@ -75,6 +76,7 @@ t/data/basic.xml
 t/data/benchmark.html
 t/data/canonical_error.html
 t/data/children.xml
+t/data/comment_does_not_die.xml
 t/data/comments.xml
 t/data/decl.xml
 t/data/delete_attribute.xml
