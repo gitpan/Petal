@@ -10,7 +10,7 @@
 use lib ('lib');
 use Test;
 
-BEGIN {print "1..10\n";}
+BEGIN {print "1..12\n";}
 END {print "not ok 1\n" unless $loaded;}
 use Petal;
 $loaded = 1;
@@ -58,6 +58,24 @@ print "ok 2\n";
     $Petal::OUTPUT = "XHTML";
     my $petal = new Petal ('index_xinclude.xml');
     ($petal->process =~ /__INCLUDED__/) ? print "ok 10\n" : print "not ok 10\n";
+}
+
+$Petal::BASE_DIR = './t/data/include/deep';
+eval {
+    $Petal::INPUT  = "XML";
+    $Petal::OUTPUT = "XML";
+    $petal = new Petal ('index.xml');
+    $petal->process;
+};
+($@ =~ /Cannot go above base directory/) ? print "ok 11\n" : print "not ok 11\n";
+
+
+$Petal::BASE_DIR = './t/data/include';
+{
+    $Petal::INPUT  = "XML";
+    $Petal::OUTPUT = "XML";
+    $petal = new Petal ('deep/index.xml');
+    ($petal->process =~ /__INCLUDED__/) ? print "ok 12\n" : print "not ok 12\n";
 }
 
 
