@@ -8,7 +8,6 @@ lib/Petal/Cache/Memory.pm
 lib/Petal/Canonicalizer/XHTML.pm
 lib/Petal/Canonicalizer/XML.pm
 lib/Petal/CodeGenerator.pm
-lib/Petal/Encode.pm
 lib/Petal/Entities.pm
 lib/Petal/Functions.pm
 lib/Petal/Hash.pm
@@ -69,6 +68,8 @@ t/055_Opt_maxinc.t
 t/060_Metal_Define.t
 t/061_Metal_Use.t
 t/062_Metal_Self_Include.t
+t/063_Nbsp.t
+t/666_entity_replace.tmpl
 t/benchmark.pl
 t/data/access_obj_array.html
 t/data/access_obj_hash.html
@@ -117,6 +118,7 @@ t/data/multiple_includes/includes/header.tmpl
 t/data/multiple_includes/register_form.tmpl
 t/data/multiple_includes/test.tmpl
 t/data/namespaces.xml
+t/data/nbsp.html
 t/data/nested_modifiers/test1.xml
 t/data/nested_modifiers/test2.xml
 t/data/omit-tag.xml
