@@ -1,5 +1,8 @@
 Revision history for Petal.
 
+0.77 Mon Oct 21 15:45:04 2002
+	- Fixed broken 0.77 release :-(
+
 0.76 Mon Oct 21 13:05:46 2002
 	- Fixed '"' being converted to '&quot;' by Petal::Parser::XMLWrapper
 
