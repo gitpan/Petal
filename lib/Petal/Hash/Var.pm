@@ -130,10 +130,11 @@ sub process
 	    return '';
 	}
 
+	$current = (isa ($current, 'CODE')) ? $current->() : $current;
 	$current_path .= "/$next";
     }
-
-    return '' unless (defined $current);
+    
+    # return '' unless (defined $current);
     return $current;
 }
 

@@ -1,8 +1,24 @@
 Revision history for Petal.
 
-1.02 TEMPORARY RE-RELEASE OF 1.00 SINCE 1.01 IS BROKEN
+1.03 Tue Jul 29 12:34:36 2003
+	- Fixed broken loops
+	- Added tests for broken loops
+	- Fixed a petal cache warning when using wide characters
 
-1.00 Tue Jul 15 20:35:19 BST 2003
+1.02 Tue Jul 29 12:25:33 2003
+	- 1.01 loops are completely broken
+	- Emergency re-release of 1.00
+
+1.01 Mon Jul 28 14:06:09 2003
+	- "empty string" expression deleting attributes bugfix
+	- Applied Fergal's attr.patch
+	- Applied Fergal's die.patch
+	- Changed Petal::Hash::Var to evaluate coderefs
+	- Introduced repeat object
+	- Changed copyright notice 
+	- Updated documentation 
+
+1.00 Tue Jul 15 20:35:19 2003
 	- Applied Steve's 'error on undef' patch
 	- Happy Birthday Petal!
 

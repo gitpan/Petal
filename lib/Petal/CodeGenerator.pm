@@ -211,7 +211,7 @@ sub _include
     $class->add_code ("}");
     $class->add_code ("\$res;");
     $class->indent_decrement();
-    $class->add_code ("};");
+    $class->add_code ("} || '';");
 }
 
 
@@ -233,7 +233,7 @@ sub _var
     $variables->{$tmp} = 1;
     
     $variable =~ s/\'/\\\'/g;
-    $class->add_code($class->_add_res($class->comp_expr($variable).";"));
+    $class->add_code($class->_add_res($class->comp_expr($variable)." || '';"));
 }
 
 
@@ -285,8 +285,8 @@ sub _endeval
     
     $class->add_code("return " . $class->_get_res() . ";");
     $class->indent_decrement();
-    $class->add_code("};");
-
+    $class->add_code("} || '';");
+    
     $class->add_code("if (defined \$\@ and \$\@) {");
     $class->indent_increment();
     $variable = quotemeta ($variable);
@@ -304,7 +304,7 @@ sub _attr
     my $class = shift;
     my $attribute = $token_hash{name} or
         confess "Cannot parse $token : 'name' attribute is not defined";
-
+    
     my $variable = $token_hash{value} or
         confess "Cannot parse $token : 'value' attribute is not defined";
     
@@ -317,11 +317,17 @@ sub _attr
     $variables->{$tmp} = 1;
     
     $variable =~ s/\'/\\\'/g;
-    $class->add_code("if (defined ".$class->comp_expr($variable)." and ".$class->comp_expr($variable)." ne '') {");
+    $class->add_code('{');
     $class->indent_increment();
-    $class->add_code($class->_add_res("\"$attribute\" . '=\"' . ".$class->comp_expr($variable)." . '\"'"));
+    $class->add_code ("my \$value = " . $class->comp_expr($variable) . ";");
+    $class->add_code ("if (defined(\$value)) {");
+    # $class->add_code ("if (defined(\$value) and length(\$value)) {");
+    $class->indent_increment();
+    $class->add_code ($class->_add_res (qq {"$attribute=\\"\$value\\""}) );
     $class->indent_decrement();
-    $class->add_code("}");
+    $class->add_code ("}");
+    $class->indent_decrement();
+    $class->add_code ("}");
 }
 
 
@@ -374,20 +380,25 @@ sub _for
 	$class->add_code("\@array = \@{".$class->comp_expr($variable)."};");
     }
     
-    $class->add_code("for (my \$i=0; \$i < \@array; \$i++) {");
+    $class->add_code ("local \$Petal::Hash_Repeat::MAX = \@array - 1;");
+    $class->add_code ("local \$Petal::Hash_Repeat::CUR = undef;");
+    $class->add_code ("for (my \$i=0; \$i < \@array; \$i++) {");
     $class->indent_increment();
-    $class->add_code("my \$hash = \$hash->new();");
-    $class->add_code("my \$count= \$i + 1;");
-    $class->add_code("\$hash->{__count__}    = \$count;");
-    $class->add_code("\$hash->{__is_first__} = (\$count == 1);");
-    $class->add_code("\$hash->{__is_last__}  = (\$count == \@array);");
-    $class->add_code("\$hash->{__is_inner__} = " .
-		                        "(not \$hash->{__is_first__} " . 
-		                        "and not \$hash->{__is_last__});");
+    $class->add_code ("my \$hash = \$hash->new();");
+    $class->add_code ("\$Petal::Hash_Repeat::CUR = \$i;");
+    $class->add_code ("\$hash->{__count__}    = sub { \$hash->{repeat}->number() };");
+    $class->add_code ("\$hash->{__is_first__} = sub { \$hash->{repeat}->start()  };");
+    $class->add_code ("\$hash->{__is_last__}  = sub { \$hash->{repeat}->end()    };");
+    $class->add_code ("\$hash->{__is_inner__} = sub { \$hash->{repeat}->inner()  };");
+    $class->add_code ("\$hash->{__even__}     = sub { \$hash->{repeat}->even()   };");
+    $class->add_code ("\$hash->{__odd__}      = sub { \$hash->{repeat}->odd()    };");
+    $class->add_code ("\$hash->{'$as'} = \$array[\$i];");
     
-    $class->add_code("\$hash->{__even__}     = (\$count % 2 == 0);");
-    $class->add_code("\$hash->{__odd__}      = not \$hash->{__even__};");
-    $class->add_code("\$hash->{'$as'} = \$array[\$i];");
+#    $class->add_code("my \$hash = \$hash->new();");
+#    $class->add_code("my \$count= \$i + 1;");
+#    $class->add_code("\$hash->{__count__}    = \$count;");
+#    $class->add_code("\$hash->{__is_first__} = (\$count == 1);");
+#    $class->add_code("\$hash->{__is_last__}  = (\$count == \@array);");    
 }
 
 
