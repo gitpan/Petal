@@ -13,51 +13,98 @@ use warnings;
 use Carp;
 
 our $PI_RE = '^<\?(?:\s|\r|\n)*(attr|include|var|if|condition|else|repeat|loop|foreach|for|eval|endeval|end).*?\?>$';
-use vars qw /$petal_object $tokens $variables @code $indent $token_name %token_hash $token $my_array/;
+use vars qw /$petal_object $tokens $variables @code $indentLevel $token_name %token_hash $token $my_array/;
+
+
+sub indent_increment
+{
+    my $class = shift;
+    $Petal::CodeGenerator::indentLevel++;
+}
+
+
+sub indent_decrement
+{
+    my $class = shift;
+    $Petal::CodeGenerator::indentLevel--;
+}
+
+
+sub indent
+{
+    my $class = shift;
+    return $Petal::CodeGenerator::indentLevel;
+}
 
 
 # these _xxx_res primitives have been contributed by Fergal Daly <fergal@esatclear.ie>
 # they speed up string construction a little bit
 sub _init_res
 {
-	return '$res = ""';
+    return '$res = ""';
 }
 
 
 sub _add_res
 {
-	my $class = shift;
-
-	my $thing = shift;
-
-	return qq{\$res .= $thing};
+    my $class = shift;
+    my $thing = shift;
+    return qq{\$res .= $thing};
 }
 
 
 sub _final_res
 {
-	return q{$res};
+    return q{$res};
 }
 
 
 sub _get_res
 {
-	return q{$res};
+    return q{$res};
 }
+
 
 sub add_code
 {
-	my $class = shift;
-
-	push(@code, "    " x $indent . shift);
+    my $class = shift;
+    push(@code, "    " x $class->indent() . shift);
 }
+
 
 sub comp_expr
 {
-	my $self = shift;
-	my $expr = shift;
-	return "\$hash->get ('$expr')";
+    my $self = shift;
+    my $expr = shift;
+    return "\$hash->get ('$expr')";
 }
+
+
+# $class->code_header();
+# ----------------------
+# This generates the beginning of the anonymous subroutine.
+sub code_header
+{
+    my $class = shift;
+    $class->add_code("\$VAR1 = sub {");
+    $class->indent_increment();
+    $class->add_code("my \$hash = shift;");
+    $class->add_code("my ".$class->_init_res.";");
+    $class->add_code('local $^W = 0;') unless $Petal::WARN_UNINIT;
+}
+
+
+# $class->code_footer();
+# ----------------------
+# This generates the tail of the anonymous subroutine
+sub code_footer
+{
+    my $class = shift;
+    $class->add_code("return ". $class->_final_res() .";");
+    $class->indent_decrement();
+    $class->add_code("};");
+}
+
 
 # $class->process ($data_ref, $petal_object);
 # -------------------------------------------
@@ -73,18 +120,14 @@ sub process
     local $tokens = $class->_tokenize ($data_ref);
     local $variables = {};
     local @code = ();
-    local $indent = 0;
+    local $Petal::CodeGenerator::indentLevel = 0;
     local $token_name = undef;
     local %token_hash = ();
     local $token = undef;
     local $my_array = {};
     
-    $class->add_code("\$VAR1 = sub {");
-    $indent++;
-    $class->add_code("my \$hash = shift;");
-    $class->add_code("my ".$class->_init_res.";");
-    $class->add_code('local $^W = 0;') unless $Petal::WARN_UNINIT;
-    
+    $class->code_header();
+
     foreach $token (@{$tokens})
     {
         if ($token =~ /$PI_RE/)
@@ -117,9 +160,9 @@ sub process
 		
 		/^end$/ and do
                 {
-		    delete $my_array->{$indent};
-                    $indent--;
-		    
+                    my $idt = $class->indent();
+		    delete $my_array->{$idt};
+                    $class->indent_decrement();
                     $class->add_code("}");
                     last CASE;
                 };
@@ -137,10 +180,7 @@ sub process
         }
     }
     
-    $class->add_code("return ". $class->_final_res() .";");
-    $indent--;
-    $class->add_code("};");
-    
+    $class->code_footer();
     return join "\n", @code;
 }
 
@@ -156,11 +196,17 @@ sub _include
     my $lang  = $petal_object->language();
     if (defined $lang and $lang)
     {
-        $class->add_code($class->_add_res("Petal->new (file => '$path', lang => '$lang')->process (\$hash->new());"));
+	my @l = ();
+	push @l, $class->_add_res ("eval { Petal->new (file => '$path', lang => '$lang')->process (\$hash->new()) };");
+	push @l, $class->_add_res ("\$\@ if (defined \$\@ and \$\@);");
+	for (@l) { $class->add_code ($_) }
     }
     else
     {
-        $class->add_code($class->_add_res("Petal->new ('$path')->process (\$hash->new());"));
+	my @l = ();
+        push @l, $class->_add_res ("eval { Petal->new ('$path')->process (\$hash->new()) };");
+	push @l, $class->_add_res ("\$\@ if (defined \$\@ and \$\@);");
+	for (@l) { $class->add_code ($_) }
     }
 }
 
@@ -206,7 +252,7 @@ sub _if
     
     $variable =~ s/\'/\\\'/g;
     $class->add_code("if (".$class->comp_expr($variable).") {");
-    $indent++;
+    $class->indent_increment();
 }
 
 
@@ -217,7 +263,7 @@ sub _eval
 {
     my $class = shift;
     $class->add_code($class->_add_res("eval {"));    
-    $indent++;
+    $class->indent_increment();
     $class->add_code("my " . $class->_init_res() .";");
     $class->add_code("local %SIG;");
     $class->add_code("\$SIG{__DIE__} = sub { \$\@ = shift };");
@@ -234,14 +280,14 @@ sub _endeval
        confess "Cannot parse $token : 'errormsg' attribute is not defined";
     
     $class->add_code("return " . $class->_get_res() . ";");
-    $indent--;
+    $class->indent_decrement();
     $class->add_code("};");
 
     $class->add_code("if (defined \$\@ and \$\@) {");
-    $indent++;
+    $class->indent_increment();
     $variable = quotemeta ($variable);
     $class->add_code($class->_add_res("\"$variable\";"));
-    $indent--;
+    $class->indent_decrement();
     $class->add_code("}");
 }
 
@@ -268,9 +314,9 @@ sub _attr
     
     $variable =~ s/\'/\\\'/g;
     $class->add_code("if (defined ".$class->comp_expr($variable)." and ".$class->comp_expr($variable)." ne '') {");
-    $indent++;
+    $class->indent_increment();
     $class->add_code($class->_add_res("\"$attribute\" . '=\"' . ".$class->comp_expr($variable)." . '\"'"));
-    $indent--;
+    $class->indent_decrement();
     $class->add_code("}");
 }
 
@@ -281,10 +327,10 @@ sub _attr
 sub _else
 {
     my $class = shift;
-    $indent--;
+    $class->indent_decrement();
     $class->add_code("}");
     $class->add_code("else {");
-    $indent++;
+    $class->indent_increment();
 }
 
 
@@ -312,11 +358,12 @@ sub _for
     $tmp =~ s/\..*//;
     $variables->{$tmp} = 1;
     
+    my $idt = $class->indent(); 
     $variable =~ s/\'/\\\'/g;
-    unless (defined $my_array->{$indent})
+    unless (defined $my_array->{$idt})
     {
 	$class->add_code("my \@array = \@{".$class->comp_expr($variable)."};");
-	$my_array->{$indent} = 1;
+	$my_array->{$idt} = 1;
     }
     else
     {
@@ -324,7 +371,7 @@ sub _for
     }
     
     $class->add_code("for (my \$i=0; \$i < \@array; \$i++) {");
-    $indent++;
+    $class->indent_increment();
     $class->add_code("my \$hash = \$hash->new();");
     $class->add_code("my \$count= \$i + 1;");
     $class->add_code("\$hash->{__count__}    = \$count;");

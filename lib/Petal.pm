@@ -6,7 +6,6 @@
 # ------------------------------------------------------------------
 package Petal;
 use Petal::Hash;
-use Petal::CodeGenerator;
 use Petal::Cache::Disk;
 use Petal::Cache::Memory;
 use Petal::Parser::XMLWrapper;
@@ -19,11 +18,21 @@ use strict;
 use warnings;
 use Carp;
 use Safe;
+use Data::Dumper;
 
 
 # these are used as local variables when the XML::Parser
 # is crunching templates...
 use vars qw /@tokens @nodeStack/;
+
+
+# Encode / Decode info...
+our $DECODE_CHARSET = undef;
+our $ENCODE_CHARSET = undef;
+
+
+# Prints as much info as possible when this is enabled.
+our $DEBUG_DUMP = 1;
 
 
 # Warn about uninitialised values in the template?
@@ -71,13 +80,13 @@ our $CURRENT_INCLUDES = 0;
 
 
 # this is for CPAN
-our $VERSION = '0.94';
+our $VERSION = '0.95';
 
 
 # The CodeGenerator class backend to use.
 # Change this only if you know what you're doing.
 our $CodeGenerator = 'Petal::CodeGenerator';
-
+our $CodeGeneratorLoaded = 0;
 
 # Default language for multi-language mode.
 # Change if you feel that English isn't a fair default.
@@ -129,6 +138,15 @@ sub main::lcode
     print Petal->new ($file)->_code_with_line_numbers;
 }
 
+sub load_code_generator
+{
+	if (not $CodeGeneratorLoaded)
+	{
+	    eval "require $CodeGenerator";
+	    confess "Failed to load $CodeGenerator, $@" if $@;
+	    $CodeGeneratorLoaded = 1;
+	}
+}
 
 # Instanciates a new Petal object.
 sub new
@@ -261,35 +279,45 @@ sub _include_compute_path
 sub process
 {
     my $self = shift;
-
+    
     # ok, from there on we need to override any global
     # variable with stuff that might have been specified
     # when constructing the object
-    local $TAINT        = defined $self->{taint}        ? $self->{taint}        : $TAINT;
-    local $DISK_CACHE   = defined $self->{disk_cache}   ? $self->{disk_cache}   : $DISK_CACHE;
-    local $MEMORY_CACHE = defined $self->{memory_cache} ? $self->{memory_cache} : $MEMORY_CACHE;
-    local $MAX_INCLUDES = defined $self->{max_includes} ? $self->{max_includes} : $MAX_INCLUDES;
-    local $INPUT        = defined $self->{input}        ? $self->{input}        : $INPUT;
-    local $OUTPUT       = defined $self->{output}       ? $self->{output}       : $OUTPUT;
-    local $BASE_DIR     = defined $self->{base_dir} ? do { ref $self->{base_dir} ? undef : $self->{base_dir} } : $BASE_DIR;
-    local @BASE_DIR     = defined $self->{base_dir} ? do { ref $self->{base_dir} ? @{$self->{base_dir}} : undef } : @BASE_DIR;
-    local $LANGUAGE     = defined $self->{default_language} ? $self->{default_language} : $LANGUAGE;
+    local $TAINT          = defined $self->{taint}            ? $self->{taint}          : $TAINT;
+    local $DISK_CACHE     = defined $self->{disk_cache}       ? $self->{disk_cache}     : $DISK_CACHE;
+    local $MEMORY_CACHE   = defined $self->{memory_cache}     ? $self->{memory_cache}   : $MEMORY_CACHE;
+    local $MAX_INCLUDES   = defined $self->{max_includes}     ? $self->{max_includes}   : $MAX_INCLUDES;
+    local $INPUT          = defined $self->{input}            ? $self->{input}          : $INPUT;
+    local $OUTPUT         = defined $self->{output}           ? $self->{output}         : $OUTPUT;
+    local $BASE_DIR       = defined $self->{base_dir} ? do { ref $self->{base_dir} ? undef : $self->{base_dir} } : $BASE_DIR;
+    local @BASE_DIR       = defined $self->{base_dir} ? do { ref $self->{base_dir} ? @{$self->{base_dir}} : undef } : @BASE_DIR;
+    local $LANGUAGE       = defined $self->{default_language} ? $self->{default_language} : $LANGUAGE;
+    local $DEBUG_DUMP     = defined $self->{debug_dump}       ? $self->{debug_dump}     : $DEBUG_DUMP;
+    local $DECODE_CHARSET = defined $self->{decode_charset}   ? $self->{decode_charset} : $DECODE_CHARSET;
+    local $ENCODE_CHARSET = defined $self->{encode_charset}   ? $self->{encode_charset} : $ENCODE_CHARSET;
     
     # prevent infinite includes from happening...
     my $current_includes = $CURRENT_INCLUDES;
     return "ERROR: MAX_INCLUDES : $CURRENT_INCLUDES" if ($CURRENT_INCLUDES > $MAX_INCLUDES);
     local $CURRENT_INCLUDES = $current_includes + 1;
     
-    my $hash = undef;
-    if (ref $_[0] eq 'Petal::Hash') { $hash = shift }
-    elsif (ref $_[0] eq 'HASH')     { $hash = new Petal::Hash (%{shift()}) }
-    else                            { $hash = new Petal::Hash (@_)         }
-    
-    my $coderef = $self->_code_memory_cached;
     my $res = undef;
-    eval { $res = $coderef->($hash) };
+    eval {
+	my $hash = undef;
+	if (ref $_[0] eq 'Petal::Hash') { $hash = shift }
+	elsif (ref $_[0] eq 'HASH')     { $hash = new Petal::Hash (%{shift()}) }
+	else                            { $hash = new Petal::Hash (@_)         }
+	
+	my $coderef = $self->_code_memory_cached;
+	$res = $coderef->($hash);
+	
+	$Petal::ENCODE_CHARSET and do {
+	    require "Encode.pm";
+	    $res = Encode::encode ($Petal::ENCODE_CHARSET, $res);
+	};
+    };
+    
     $self->_handle_error ($@) if (defined $@ and $@);
-
     return $res;
 }
 
@@ -298,8 +326,43 @@ sub _handle_error
 {
     my $self = shift;
     my $error = shift;
-    confess $error . "\n===\n\n" . $self->_code_with_line_numbers;
+    
+    $Petal::DEBUG_DUMP and do {
+	my $tmpdir  = File::Spec->tmpdir();
+	my $tmpfile = $$ . '.' . time() . '.' . ( join '', map { chr (ord ('a') + int (rand (26))) } 1..10 );
+	my $debug   = "$tmpdir/petal_debug.$tmpfile";
+	
+	open ERROR, ">$debug" || die "Cannot write-open \">$debug\"";
+	
+	print ERROR "Error: $error\n";
+	ref $error and do {
+	    print ERROR "=============\n";
+	};
+	print "\n";
+	
+	print ERROR "Petal object dump:\n";
+	print ERROR "==================\n";
+	print ERROR Dumper ($self);
+	print ERROR "\n\n";
+	
+	print ERROR "Stack trace:\n";
+	print ERROR "============\n";
+	print ERROR Carp::longmess();
+	print ERROR "\n\n";
+	
+	print ERROR "Template perl code dump:\n";
+	print ERROR "========================\n";
+	my $dump = eval { $self->_code_with_line_numbers() };
+	($dump) ? print ERROR $dump : print ERROR "(no dump available)";
+	
+	die "[PETAL ERROR] $error. Debug info written in $debug.";
+    };
+    
+    ! $Petal::DEBUG_DUMP and do {
+	die "[PETAL ERROR] $error. No debug info written.";
+    };
 }
+
 
 # $self->code_with_line_numbers;
 # ------------------------------
@@ -362,7 +425,7 @@ sub _file_path
 	return $file_path if (-e $file_path and -r $file_path);
     }
     
-    confess ("Cannot find $file in @dirs. (typo? permission problem?)");
+    Carp::confess ("Cannot find $file in @dirs. (typo? permission problem?)");
 }
 
 
@@ -372,16 +435,23 @@ sub _file_path
 #   reference to that variable
 sub _file_data_ref
 {
-    my $self = shift;
+    my $self      = shift;
     my $file_path = $self->_file_path;
-    open FP, "<$file_path" or
-        confess "Cannot read-open $file_path";
-    my $data = join '', <FP>;
+    
+    use bytes;
+    open FP, "<$file_path" || die 'Cannot read-open $file_path';
+    my $res = join '', <FP>;
     close FP;
-
+    no bytes;
+    
+    $Petal::DECODE_CHARSET and do {
+	require "Encode.pm";
+	$res = Encode::decode ($Petal::DECODE_CHARSET, $res);
+    };
+    
     # kill template comments
-    $data =~ s/\<!--\?.*?\-->//gsm;
-    return \$data;
+    $res =~ s/\<!--\?.*?\-->//gsm;
+    return \$res;
 }
 
 
@@ -398,6 +468,8 @@ sub _code_disk_cached
     {
 	my $data_ref = $self->_file_data_ref;
 	$data_ref    = $self->_canonicalize;
+
+	load_code_generator();
 	$code = $CodeGenerator->process ($data_ref, $self);
 	Petal::Cache::Disk->set ($file, $code) if (defined $DISK_CACHE and $DISK_CACHE);
     }
@@ -780,12 +852,39 @@ The maximum number of recursive includes before Petal stops processing.  This
 is to guard against accidental infinite recursions.
 
 
+=head2 debug_dump => I<true> | I<false> (default: I<true>)
+
+If this option is true, when Petal cannot process a template it will
+output lots of debugging information in a temporary file which you can
+inspect.
+
+
+=head2 encode_charset => I<charset> (default: undef)
+
+This option will work only if you use Perl 5.8.
+
+If specified, Petal will assume encode the output in the character set
+I<charset>.  Please note that the utf-8 flag will be ALWAYS turned off, even if
+you specify I<utf8>.
+
+I<charset> can be any character set that can be used with the module L<Encode>. 
+
+
+=head2 decode_charser => I<charset> (default: undef)
+
+This option will work only if you use Perl 5.8.
+
+If specified, Petal will assume that the template to be processed (and its
+sub-templates) are in the character set I<charset>. 
+
+I<charset> can be any character set that can be used with the module L<Encode>. 
+
+
 =head2 Global Variables
 
-Earlier versions of Petal used global variables rather than constructor
-arguments to set the options described above.  That method of setting options
-is now deprecated, but you may encounter older code which uses the following
-variables:
+If you want to use an option throughout your entire program and don't want to
+have to pass it to the constructor each time, you can set them globally. They
+will then act as defaults unless you override them in the constructor.
 
   $Petal::BASE_DIR          (use base_dir option)
   $Petal::INPUT             (use input option)
@@ -795,6 +894,9 @@ variables:
   $Petal::MEMORY_CACHE      (use memory_cache option)
   $Petal::MAX_INCLUDES      (use max_includes option)
   $Petal::LANGUAGE          (use default_language option)
+  $Petal::DEBUG_DUMP        (use debug_dump option)
+  $Petal::ENCODE_CHARSET    (use encode_charset option)
+  $Petal::DECODE_CHARSET    (use decode_charset option)
 
 
 =head1 TAL SYNTAX
