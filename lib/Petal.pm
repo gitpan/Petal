@@ -86,7 +86,7 @@ our $CURRENT_INCLUDES = 0;
 
 
 # this is for CPAN
-our $VERSION = '1.10_04';
+our $VERSION = '1.10_05';
 
 
 # The CodeGenerator class backend to use.
@@ -493,7 +493,7 @@ sub _file_data_ref
 	$res = Petal::Encode::p_decode ($Petal::DECODE_CHARSET, $res);
     };
     
-    if ($OUTPUT eq 'HTML' or $OUTPUT eq 'XHTML')
+    if ($OUTPUT eq 'HTML' or $OUTPUT eq 'XHTML' or $INPUT eq 'HTML' or $INPUT eq 'XHTML')
     {
 	Petal::Encode->p_utf8_on ($res);
 	$res = MKDoc::XML::DecodeHO->process ($res);
