@@ -101,7 +101,7 @@ our $CURRENT_INCLUDES = 0;
 
 
 # this is for CPAN
-our $VERSION = '2.16';
+our $VERSION = '2.17';
 
 
 # The CodeGenerator class backend to use.
@@ -764,7 +764,7 @@ Let's say you have the following Perl code:
     local $Petal::OUTPUT = 'XHTML';
 
     my $template = new Petal ('foo.xhtml');
-    template->process ( my_var => my_var() );
+    template->process ( my_var => some_object() );
 
 some_object() is a subroutine that returns some kind of object, may it be a scalar,
 object, array referebce or hash reference. Let's see what we can do...
@@ -800,8 +800,8 @@ code.
 
 =head2 Version 3: Personalizable
 
-Now let's say that your method some_object() can take an optional
-argument so that C<$my_var->hello_world ('Jack')> returns I<Hello Jack>.
+Now let's say that your method hello_world() can take an optional
+argument so that C<$some_object-E<gt>hello_world ('Jack')> returns I<Hello Jack>.
 
 You would write:
 
@@ -845,7 +845,7 @@ You can use Petal as follows in your Perl code:
     local $Petal::OUTPUT = 'XHTML';
 
     my $template = new Petal ( file => 'hello_world', lang => 'fr-CA' );
-    print $template->process ( my_var => my_var() );
+    print $template->process ( my_var => some_object() );
 
 What will happen is that the C<$template> object will try to find a file named
 C<fr-CA>, then C<fr>, then will default to <en>. It should work fine for
@@ -1255,12 +1255,12 @@ WYSIWYG compatible way of doing template includes.
 =head2 define-macro
 
 In order to define a macro inside a file (i.e. a fragment to be included), you
-use the metal:use-macro directive. For example:
+use the metal:define-macro directive. For example:
 
   File foo.xml
   ============
 
-  <html>
+  <html xmlns:metal="http://xml.zope.org/namespaces/metal">
     <body>
       <p metal:define-macro="footer">
         (c) Me (r)(tm) (pouet pouet)
@@ -1271,13 +1271,13 @@ use the metal:use-macro directive. For example:
 
 =head2 use-macro
 
-In order to use a previously defined macro, you use the metal:define-macro directive.
+In order to use a previously defined macro, you use the metal:use-macro directive.
 For example:
 
   File bar.xml
   ============
 
-  <html>
+  <html xmlns:metal="http://xml.zope.org/namespaces/metal">
     <body>
       ... plenty of content ...
 
@@ -1299,7 +1299,7 @@ example above, imagine that we want to be able to optionally override the
   File foo.xml
   ============
 
-  <html>
+  <html xmlns:metal="http://xml.zope.org/namespaces/metal">
     <body>
       <p metal:define-macro="footer">
         (c) Me (r)(tm) <span metal:define-slot="pouet">(pouet pouet)</span>
@@ -1315,7 +1315,7 @@ Your including file can override any slot using the fill-slot instruction, i.e.
   File bar.xml
   ============
 
-  <html>
+  <html xmlns:metal="http://xml.zope.org/namespaces/metal">
     <body>
       ... plenty of content ...
 
@@ -1345,7 +1345,8 @@ which allows for recursive macros.
 This example templates a sitemap, which on a hierarchically organized site would
 be recursive by nature:
 
-  <html>
+  <html xmlns:metal="http://xml.zope.org/namespaces/metal"
+        xmlns:petal="http://purl.org/petal/1.0/">
     <body>
       <p>Sitemap:</p>
 
@@ -1513,7 +1514,7 @@ I'm pretty sure you can work this one out by yourself :-)
 =head2 set:variable_name EXPRESSION
 
 Sets the value returned by the evaluation of EXPRESSION in
-C<$hash->{variable_name}>. For instance:
+C<$hash-E<gt>{variable_name}>. For instance:
 
 Perl expression:
 
