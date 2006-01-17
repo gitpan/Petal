@@ -101,7 +101,7 @@ our $CURRENT_INCLUDES = 0;
 
 
 # this is for CPAN
-our $VERSION = '2.17';
+our $VERSION = '2.18';
 
 
 # The CodeGenerator class backend to use.
@@ -1079,7 +1079,7 @@ A table with rows of alternating colours set via CSS:
     >
       <tr 
         class="odd"
-        tal:condition="true: repeat/odd"
+        tal:condition="true: audience/odd"
       >
         <td>
           This a odd row, it comes before the even row.
@@ -1087,7 +1087,7 @@ A table with rows of alternating colours set via CSS:
       </tr>
       <tr 
         class="even"
-        tal:condition="true: repeat/even"
+        tal:condition="true: audience/even"
       >
         <td> 
           This a even row.
@@ -1194,6 +1194,10 @@ If you want to ALWAYS remove a tag, you can use C<omit-tag="string:1">
 
 
 =head2 on-error
+
+Warning: this is currently only partially implemented.  C<on-error> may be used
+in Petal templates, but the expression isn't evaluated - Petal simply prints
+the expression as a string.
 
 Abstract
 

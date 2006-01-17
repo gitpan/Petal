@@ -162,9 +162,9 @@ sub process
 
     foreach $token (@{$tokens})
     {
-        if ($token =~ /$PI_RE/)
+        if ($token =~ /$PI_RE/s)
         {
-	    ($token_name) = $token =~ /$PI_RE/;
+	    ($token_name) = $token =~ /$PI_RE/s;
 	    my @atts1 = $token =~ /(\S+)\=\"(.*?)\"/gos;
 	    my @atts2 = $token =~ /(\S+)\=\'(.*?)\'/gos;
 	    %token_hash = (@atts1, @atts2); 
@@ -381,6 +381,11 @@ sub _endeval
     
     $class->add_code("if (defined \$\@ and \$\@) {");
     $class->indent_increment();
+
+    $variable =~ s/\&/&amp;/g;
+    $variable =~ s/\</&lt;/g;
+    $variable =~ s/\>/&gt;/g;
+    $variable =~ s/\"/&quot;/g;
     $variable = quotemeta ($variable);
     $class->add_code($class->_add_res("\"$variable\";"));
     $class->indent_decrement();
