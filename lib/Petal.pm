@@ -95,13 +95,17 @@ our $DISK_CACHE = 1;
 our $MEMORY_CACHE = 1;
 
 
+# cache only mode
+our $CACHE_ONLY = 0;
+
+
 # prevents infinites includes...
 our $MAX_INCLUDES = 30;
 our $CURRENT_INCLUDES = 0;
 
 
 # this is for CPAN
-our $VERSION = '2.18';
+our $VERSION = '2.19';
 
 
 # The CodeGenerator class backend to use.
@@ -137,6 +141,7 @@ sub main::canonical
     my $file = shift (@ARGV);
     local $Petal::DISK_CACHE = 0;
     local $Petal::MEMORY_CACHE = 0;
+    local $Petal::CACHE_ONLY = 0;
     local $Petal::INPUT  = $ENV{PETAL_INPUT}  || 'XML';
     local $Petal::OUTPUT = $ENV{PETAL_OUTPUT} || 'XHTML';
     print ${Petal->new ($file)->_canonicalize()};
@@ -151,6 +156,7 @@ sub main::code
     my $file = shift (@ARGV);
     local $Petal::DISK_CACHE = 0;
     local $Petal::MEMORY_CACHE = 0;
+    local $Petal::CACHE_ONLY = 0;
     print Petal->new ($file)->_code_disk_cached;
 }
 
@@ -163,6 +169,7 @@ sub main::lcode
     my $file = shift (@ARGV);
     local $Petal::DISK_CACHE = 0;
     local $Petal::MEMORY_CACHE = 0;
+    local $Petal::CACHE_ONLY = 0;
     print Petal->new ($file)->_code_with_line_numbers;
 }
 
@@ -241,6 +248,7 @@ sub taint              { exists $_[0]->{taint}              ? $_[0]->{taint}    
 sub error_on_undef_var { exists $_[0]->{error_on_undef_var} ? $_[0]->{error_on_undef_var} : $ERROR_ON_UNDEF_VAR }
 sub disk_cache         { exists $_[0]->{disk_cache}         ? $_[0]->{disk_cache}         : $DISK_CACHE         }
 sub memory_cache       { exists $_[0]->{memory_cache}       ? $_[0]->{memory_cache}       : $MEMORY_CACHE       }
+sub cache_only         { exists $_[0]->{cache_only}         ? $_[0]->{cache_only}         : $CACHE_ONLY         }
 sub max_includes       { exists $_[0]->{max_includes}       ? $_[0]->{max_includes}       : $MAX_INCLUDES       }
 
 
@@ -341,6 +349,7 @@ sub process
     local $ERROR_ON_UNDEF_VAR = defined $self->{error_on_undef_var}  ? $self->{error_on_undef_var}  : $ERROR_ON_UNDEF_VAR;
     local $DISK_CACHE         = defined $self->{disk_cache}          ? $self->{disk_cache}          : $DISK_CACHE;
     local $MEMORY_CACHE       = defined $self->{memory_cache}        ? $self->{memory_cache}        : $MEMORY_CACHE;
+    local $CACHE_ONLY         = defined $self->{cache_only}          ? $self->{cache_only}          : $CACHE_ONLY;
     local $MAX_INCLUDES       = defined $self->{max_includes}        ? $self->{max_includes}        : $MAX_INCLUDES;
     local $INPUT              = defined $self->{input}               ? $self->{input}               : $INPUT;
     local $OUTPUT             = defined $self->{output}              ? $self->{output}              : $OUTPUT;
@@ -369,6 +378,8 @@ sub process
 	die "\$hash is undefined\n\n" unless $hash;
 	$res = $coderef->($hash);
     };
+    
+    if ( $CACHE_ONLY == 1 ){ return 1; }
    
     if (defined $@ and $@) { $res = $self->_handle_error ($@) }
     elsif (defined $TranslationService && $CURRENT_INCLUDES == 1) { $res = Petal::I18N->process ($res) } 
@@ -764,7 +775,7 @@ Let's say you have the following Perl code:
     local $Petal::OUTPUT = 'XHTML';
 
     my $template = new Petal ('foo.xhtml');
-    template->process ( my_var => some_object() );
+    $template->process ( my_var => some_object() );
 
 some_object() is a subroutine that returns some kind of object, may it be a scalar,
 object, array referebce or hash reference. Let's see what we can do...
@@ -847,11 +858,15 @@ You can use Petal as follows in your Perl code:
     my $template = new Petal ( file => 'hello_world', lang => 'fr-CA' );
     print $template->process ( my_var => some_object() );
 
-What will happen is that the C<$template> object will try to find a file named
-C<fr-CA>, then C<fr>, then will default to <en>. It should work fine for
-includes, too!
+What will happen is that the C<$template> object will look in the
+C<hello_world> directory and try to find a file named C<fr-CA.xhtml>, then
+C<fr.xhtml>, then will default to C<en.xhtml>. It works fine for includes, too!
 
-NOTE: There is now beta support for ZPT-like i18n attributes, which should
+These internationalized templates can have whatever file-extension you like,
+Petal searches on the first part of the filename.  So you can call them
+C<fr.html>, C<fr.xml>, C<fr.xhtml> or use whatever convention suits you.
+
+NOTE: There is now support for ZPT-like i18n attributes, which should
 provide a much nicer framework. See L<Petal::I18N> for details.
 
 
@@ -960,6 +975,13 @@ If set to C<false>, Petal will not use the C<Petal::Cache::Disk> module.
 If set to C<false>, Petal will not use the C<Petal::Cache::Memory> module.
 
 
+=head2 cache_only => I<true> | I<false> (default: I<false>)
+
+If set to C<true>, Petal will return true after having compiled a template into
+perl code and a subroutine , and optionally using disk_cache or memory_cache if
+either is set.
+
+
 =head2 max_includes => I<number> (default: 30)
 
 The maximum number of recursive includes before Petal stops processing.  This
@@ -970,7 +992,8 @@ is to guard against accidental infinite recursions.
 
 If this option is true, when Petal cannot process a template it will
 output lots of debugging information in a temporary file which you can
-inspect.
+inspect.  The location for this file is wherever File::Spec->tmpdir()
+specifies as a temp directory (usually /tmp on a unix system).
 
 
 =head2 encode_charset => I<charset> (default: undef)
@@ -1050,6 +1073,11 @@ Abstract
      blah blah blah
   </tag>
 
+Why?
+
+Repeat statements are used to loop through a list of values,
+typically to display the resulting records of a database query.
+
 Example:
 
   <li tal:repeat="user system/user_list">$user/real_name</li>
@@ -1079,7 +1107,7 @@ A table with rows of alternating colours set via CSS:
     >
       <tr 
         class="odd"
-        tal:condition="true: audience/odd"
+        tal:condition="repeat/odd"
       >
         <td>
           This a odd row, it comes before the even row.
@@ -1087,7 +1115,7 @@ A table with rows of alternating colours set via CSS:
       </tr>
       <tr 
         class="even"
-        tal:condition="true: audience/even"
+        tal:condition="repeat/even"
       >
         <td> 
           This a even row.
@@ -1096,11 +1124,38 @@ A table with rows of alternating colours set via CSS:
     </div>
   </table>
 
-Why?
+I<repeat> is a local temporary object that only exists within a
+petal:repeat loop.  It has a bunch of methods useful for selecting
+different positions in the loop:
 
-Repeat statements are used to loop through a list of values,
-typically to display the resulting records of a database query.
+=head3 repeat/index
 
+I<index> returns the numeric position of this item within the loop, starts with
+one not zero.
+
+=head3 repeat/number
+
+I<number> is an alias for I<index>.
+
+=head3 repeat/even
+
+I<even> is true if the position is even (0, 2, 4 ...)
+
+=head3 repeat/odd
+
+I<odd> is true is the position is odd (1, 3, 5 ...)
+
+=head3 repeat/start
+
+I<start> is true if this is the first item.
+
+=head3 repeat/end
+
+I<end> is true if this is the last item.
+
+=head3 repeat/inner
+
+I<inner> is true if this is not the I<start> or I<end>.
 
 =head2 attributes
 
@@ -1695,6 +1750,10 @@ the same template will be reduced to step 8 until the source template changes.
 
 Otherwise, subsequent calls will resume at step 6, until the source template
 changes.
+
+If you are using the mod_perl prefork MPM, you can precompile Petal templates
+into Apache's shared memory at startup by using the cache_only option.  This
+will allow you to run through steps 1-7 without passing any data to Petal.
 
 
 =head1 DECRYPTING WARNINGS AND ERRORS
