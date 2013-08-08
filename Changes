@@ -1,5 +1,8 @@
 Revision history for Petal.
 
+2.23 Thu Aug 08 15:50:00 2013
+    - Fix Petal::Utils installation after regression caused by improved tal:repeat error message
+
 2.22 Sun Feb 24 12:15:00 2013
     - Fix caching when specifying a language (RT #55692)
     - Add LICENSE to Makefile.PL (RT #83585)
